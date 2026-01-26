@@ -1,0 +1,26 @@
+{
+    "manifest_version": 3,
+    "name": "Zky's RPG Sidekick",
+    "version": "1.0.0",
+    "description": "A gamified productivity companion for developers: Quests, Notes, and Context Management.",
+    "permissions": [
+        "tabs",
+        "storage",
+        "activeTab",
+        "sidePanel"
+    ],
+    "background": {
+        "service_worker": "service-worker.js"
+    },
+    "action": {
+        "default_title": "Dev Sidekick"
+    },
+    "side_panel": {
+        "default_path": "index.html"
+    },
+    "icons": {
+        "16": "vite.svg",
+        "48": "vite.svg",
+        "128": "vite.svg"
+    }
+}

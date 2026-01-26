@@ -1,0 +1,33 @@
+@import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom Scrollbar for "Cozy RPG" feel */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #2d2d2d;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #5a5a5a;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #7a7a7a;
+}
+
+body {
+  background-color: #1e1e1e;
+  /* Dark background */
+  color: #e0e0e0;
+  font-family: 'VT323', monospace;
+  /* Retro RPG Font */
+  font-size: 1.2rem;
+  /* VT323 is small, so we bump up the size */
+}
