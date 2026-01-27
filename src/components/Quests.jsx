@@ -1,6 +1,44 @@
 import React, { useState, useEffect } from 'react';
 import confetti from 'canvas-confetti';
 import { playSound } from '../utils/soundfx';
+import {
+    DndContext,
+    closestCenter,
+    KeyboardSensor,
+    PointerSensor,
+    useSensor,
+    useSensors,
+} from '@dnd-kit/core';
+import {
+    arrayMove,
+    SortableContext,
+    sortableKeyboardCoordinates,
+    verticalListSortingStrategy,
+    useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+
+// Sortable Item Component
+const SortableQuestItem = ({ quest, children }) => {
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+    } = useSortable({ id: quest.id });
+
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+    };
+
+    return (
+        <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+            {children}
+        </div>
+    );
+};
 
 const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled }) => {
     // profile is now a prop
@@ -8,6 +46,13 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled })
     const [newQuestTitle, setNewQuestTitle] = useState('');
     const [isBossMode, setIsBossMode] = useState(false);
     const [streak, setStreak] = useState(0);
+
+    const sensors = useSensors(
+        useSensor(PointerSensor),
+        useSensor(KeyboardSensor, {
+            coordinateGetter: sortableKeyboardCoordinates,
+        })
+    );
 
     // Load data on mount
     useEffect(() => {
@@ -34,7 +79,9 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled })
 
                 // Save new streak data
                 const updates = { lastLoginDate: today, dailyStreak: currentStreak };
-                if (chrome?.storage?.local) {
+                if (chrome?.storage?.sync) {
+                    chrome.storage.sync.set(updates);
+                } else if (chrome?.storage?.local) {
                     chrome.storage.local.set(updates);
                 } else {
                     localStorage.setItem('lastLoginDate', today);
@@ -51,7 +98,23 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled })
             setStreak(currentStreak);
         };
 
-        if (chrome?.storage?.local) {
+        if (chrome?.storage?.sync) {
+            chrome.storage.sync.get(['quests', 'dailyStreak', 'lastLoginDate'], (syncRes) => {
+                if (Object.keys(syncRes).length > 0) {
+                    loadData(syncRes);
+                } else {
+                    // Try Local (Migration)
+                    chrome.storage.local.get(['quests', 'dailyStreak', 'lastLoginDate'], (localRes) => {
+                        if (Object.keys(localRes).length > 0) {
+                            loadData(localRes);
+                            chrome.storage.sync.set(localRes); // Migrate
+                        } else {
+                            loadData({});
+                        }
+                    });
+                }
+            });
+        } else if (chrome?.storage?.local) {
             chrome.storage.local.get(['rpgProfile', 'quests', 'dailyStreak', 'lastLoginDate'], loadData);
         } else {
             // Mock for local dev
@@ -74,15 +137,27 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled })
         if (newQuests) setQuests(newQuests);
 
         const data = {};
-        // Profile save is handled by App.jsx via updateProfile, but strictly we should probably not save it here if App handles it?
-        // Actually App.jsx handles saving profile on state change.
-        // So we only need to save Quests here.
         if (newQuests) data.quests = newQuests;
 
-        if (chrome?.storage?.local) {
+        if (chrome?.storage?.sync) {
+            chrome.storage.sync.set(data);
+        } else if (chrome?.storage?.local) {
             chrome.storage.local.set(data);
         } else {
             if (newQuests) localStorage.setItem('quests', JSON.stringify(newQuests));
+        }
+    };
+
+    const handleDragEnd = (event) => {
+        const { active, over } = event;
+
+        if (active.id !== over.id) {
+            const oldIndex = quests.findIndex((q) => q.id === active.id);
+            const newIndex = quests.findIndex((q) => q.id === over.id);
+            const newQuests = arrayMove(quests, oldIndex, newIndex);
+            // Optimistic update
+            setQuests(newQuests);
+            saveState(null, newQuests);
         }
     };
 
@@ -247,6 +322,10 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled })
         saveState(null, updatedQuests);
     };
 
+    // Filter active quests for DnD
+    const activeQuests = quests.filter(q => !q.completed);
+    const completedQuests = quests.filter(q => q.completed);
+
     return (
         <div className="h-full flex flex-col">
             {/* Adventurer Profile Header */}
@@ -295,6 +374,7 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled })
                 <div className="relative">
                     <input
                         type="text"
+                        id="newQuestInput"
                         placeholder={isBossMode ? "Name of the Ancient Evil..." : "New Quest (e.g., Slay the Bug)..."}
                         value={newQuestTitle}
                         onChange={(e) => setNewQuestTitle(e.target.value)}
@@ -309,7 +389,7 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled })
                 </div>
             </form>
 
-            {/* Quest Board */}
+            {/* Quest Board Board with Drag & Drop */}
             <div className="flex-1 overflow-y-auto space-y-3 pr-1">
                 {quests.length === 0 && (
                     <div className="text-center text-gray-500 italic mt-8 text-base">
@@ -317,93 +397,110 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled })
                     </div>
                 )}
 
-                {/* Active Quests */}
-                {quests.filter(q => !q.completed).map(quest => (
-                    <div key={quest.id} className={`bg-[#2a282a] border-l-4 ${quest.type === 'boss' ? 'border-l-red-600 border border-red-900/50' : 'border-l-[#d4af37]'} rounded-r p-4 transition-colors relative`}>
-                        <div className="flex justify-between items-start">
-                            <div className="flex-1">
-                                <div className={`font-bold text-base ${quest.type === 'boss' ? 'text-red-400 uppercase tracking-wider' : 'text-[#e0e0e0]'}`}>
-                                    {quest.type === 'boss' && '👹 '} {quest.title}
-                                </div>
-                                <div className="text-xs text-[#d4af37] mt-1">Reward: {quest.xpReward} XP</div>
+                <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragEnd={handleDragEnd}
+                >
+                    <SortableContext
+                        items={activeQuests.map(q => q.id)}
+                        strategy={verticalListSortingStrategy}
+                    >
+                        {activeQuests.map(quest => (
+                            <SortableQuestItem key={quest.id} quest={quest}>
+                                <div className={`bg-[#2a282a] border-l-4 ${quest.type === 'boss' ? 'border-l-red-600 border border-red-900/50' : 'border-l-[#d4af37]'} rounded-r p-4 transition-colors relative mb-3 group`}>
 
-                                {/* Boss HP Bar */}
-                                {quest.type === 'boss' && (
-                                    <div className="mt-2 mb-2">
-                                        <div className="flex justify-between text-[10px] text-red-400 mb-1">
-                                            <span>BOSS HP</span>
-                                            <span>{quest.hp} / {quest.maxHp}</span>
-                                        </div>
-                                        <div className="w-full h-4 bg-red-950 rounded-full overflow-hidden border border-red-800">
-                                            <div
-                                                className="h-full bg-red-600 transition-all duration-300"
-                                                style={{ width: `${(quest.hp / quest.maxHp) * 100}%` }}
-                                            />
-                                        </div>
-                                    </div>
-                                )}
+                                    <div className="flex justify-between items-start">
+                                        <div className="flex-1 cursor-grab active:cursor-grabbing">
+                                            <div className={`font-bold text-base ${quest.type === 'boss' ? 'text-red-400 uppercase tracking-wider' : 'text-[#e0e0e0]'}`}>
+                                                {quest.type === 'boss' && '👹 '} {quest.title}
+                                            </div>
+                                            <div className="text-xs text-[#d4af37] mt-1">Reward: {quest.xpReward} XP</div>
 
-                                {/* Subtasks (Minions) */}
-                                {quest.type === 'boss' && (
-                                    <div className="mt-3 pl-2 border-l-2 border-red-900/30">
-                                        <div className="space-y-1">
-                                            {quest.subtasks?.map(sub => (
-                                                !sub.completed && (
-                                                    <div key={sub.id} className="flex items-center gap-2 group/sub">
-                                                        <button
-                                                            onClick={() => completeSubtask(quest.id, sub.id)}
-                                                            className="w-4 h-4 rounded border border-red-500 hover:bg-red-500 flex items-center justify-center text-[10px]"
-                                                        >
-                                                            ⚔️
-                                                        </button>
-                                                        <span className="text-xs text-gray-400">{sub.title}</span>
+                                            {/* Boss HP Bar */}
+                                            {quest.type === 'boss' && (
+                                                <div className="mt-2 mb-2">
+                                                    <div className="flex justify-between text-[10px] text-red-400 mb-1">
+                                                        <span>BOSS HP</span>
+                                                        <span>{quest.hp} / {quest.maxHp}</span>
                                                     </div>
-                                                )
-                                            ))}
+                                                    <div className="w-full h-4 bg-red-950 rounded-full overflow-hidden border border-red-800">
+                                                        <div
+                                                            className="h-full bg-red-600 transition-all duration-300"
+                                                            style={{ width: `${(quest.hp / quest.maxHp) * 100}%` }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Subtasks (Minions) */}
+                                            {quest.type === 'boss' && (
+                                                <div className="mt-3 pl-2 border-l-2 border-red-900/30">
+                                                    <div className="space-y-1">
+                                                        {quest.subtasks?.map(sub => (
+                                                            !sub.completed && (
+                                                                <div key={sub.id} className="flex items-center gap-2 group/sub">
+                                                                    <button
+                                                                        onClick={(e) => { e.stopPropagation(); completeSubtask(quest.id, sub.id); }} // Stop drag
+                                                                        onPointerDown={(e) => e.stopPropagation()} // Prevent drag start on button
+                                                                        className="w-4 h-4 rounded border border-red-500 hover:bg-red-500 flex items-center justify-center text-[10px]"
+                                                                    >
+                                                                        ⚔️
+                                                                    </button>
+                                                                    <span className="text-xs text-gray-400">{sub.title}</span>
+                                                                </div>
+                                                            )
+                                                        ))}
+                                                    </div>
+
+                                                    {/* Add Subtask Input */}
+                                                    <input
+                                                        type="text"
+                                                        placeholder="+ Add Minion check..."
+                                                        className="mt-2 w-full bg-transparent border-b border-[#444] text-xs py-1 focus:outline-none focus:border-red-500 text-gray-500 placeholder-gray-700"
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter') {
+                                                                addSubtask(quest.id, e.currentTarget.value);
+                                                                e.currentTarget.value = '';
+                                                            }
+                                                        }}
+                                                        onPointerDown={(e) => e.stopPropagation()} // Allow interaction
+                                                    />
+                                                </div>
+                                            )}
                                         </div>
 
-                                        {/* Add Subtask Input */}
-                                        <input
-                                            type="text"
-                                            placeholder="+ Add Minion check..."
-                                            className="mt-2 w-full bg-transparent border-b border-[#444] text-xs py-1 focus:outline-none focus:border-red-500 text-gray-500 placeholder-gray-700"
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter') {
-                                                    addSubtask(quest.id, e.currentTarget.value);
-                                                    e.currentTarget.value = '';
-                                                }
-                                            }}
-                                        />
+                                        <div className="flex items-center gap-3 pl-2">
+                                            {quest.type !== 'boss' && (
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); completeQuest(quest.id); }}
+                                                    onPointerDown={(e) => e.stopPropagation()}
+                                                    className="bg-[#1e1e1e] hover:bg-[#d4af37] hover:text-black border border-[#d4af37] text-[#d4af37] rounded-full w-10 h-10 flex items-center justify-center transition-all shadow-[0_0_5px_rgba(212,175,55,0.2)] text-lg"
+                                                    title="Complete Quest"
+                                                >
+                                                    ✔
+                                                </button>
+                                            )}
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); deleteQuest(quest.id); }}
+                                                onPointerDown={(e) => e.stopPropagation()}
+                                                className="text-gray-500 hover:text-red-400 text-sm px-2"
+                                                title="Abandon Quest"
+                                            >
+                                                ✕
+                                            </button>
+                                        </div>
                                     </div>
-                                )}
-                            </div>
-
-                            <div className="flex items-center gap-3 pl-2">
-                                {quest.type !== 'boss' && (
-                                    <button
-                                        onClick={() => completeQuest(quest.id)}
-                                        className="bg-[#1e1e1e] hover:bg-[#d4af37] hover:text-black border border-[#d4af37] text-[#d4af37] rounded-full w-10 h-10 flex items-center justify-center transition-all shadow-[0_0_5px_rgba(212,175,55,0.2)] text-lg"
-                                        title="Complete Quest"
-                                    >
-                                        ✔
-                                    </button>
-                                )}
-                                <button
-                                    onClick={() => deleteQuest(quest.id)}
-                                    className="text-gray-500 hover:text-red-400 text-sm px-2"
-                                    title="Abandon Quest"
-                                >
-                                    ✕
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                ))}
+                                </div>
+                            </SortableQuestItem>
+                        ))}
+                    </SortableContext>
+                </DndContext>
 
                 {/* Completed Quests (Collapsed or at bottom) */}
-                {quests.filter(q => q.completed).length > 0 && <div className="border-t border-[#333] my-3"></div>}
+                {completedQuests.length > 0 && <div className="border-t border-[#333] my-3"></div>}
 
-                {quests.filter(q => q.completed).map(quest => (
+                {completedQuests.map(quest => (
                     <div key={quest.id} className="bg-[#1a181a] border border-[#333] rounded p-3 flex justify-between items-center opacity-60 grayscale hover:grayscale-0 transition-all">
                         <div className="line-through text-gray-500 text-sm">
                             {quest.type === 'boss' ? '👹 ' : ''}{quest.title}

@@ -1,6 +1,44 @@
 import React, { useEffect, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { playSound } from '../utils/soundfx';
+import {
+    DndContext,
+    closestCenter,
+    KeyboardSensor,
+    PointerSensor,
+    useSensor,
+    useSensors,
+} from '@dnd-kit/core';
+import {
+    arrayMove,
+    SortableContext,
+    sortableKeyboardCoordinates,
+    verticalListSortingStrategy,
+    useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+
+// Sortable Note Item Component
+const SortableNoteItem = ({ note, isActive, onClick, onDelete, children }) => {
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+    } = useSortable({ id: note.id });
+
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+    };
+
+    return (
+        <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+            {children}
+        </div>
+    );
+};
 
 const Notes = () => {
     // Data Structure: [{ id: 123, content: "...", updatedAt: "..." }]
@@ -8,6 +46,13 @@ const Notes = () => {
     const [activeNoteId, setActiveNoteId] = useState(null);
     const [isPreview, setIsPreview] = useState(false);
     const [statusMsg, setStatusMsg] = useState('');
+
+    const sensors = useSensors(
+        useSensor(PointerSensor),
+        useSensor(KeyboardSensor, {
+            coordinateGetter: sortableKeyboardCoordinates,
+        })
+    );
 
     // Load notes on mount
     useEffect(() => {
@@ -26,7 +71,21 @@ const Notes = () => {
             }
         };
 
-        if (chrome?.storage?.local) {
+        if (chrome?.storage?.sync) {
+            chrome.storage.sync.get(['notesList', 'quickNote'], (syncRes) => {
+                if (syncRes.notesList || syncRes.quickNote) {
+                    loadData(syncRes);
+                } else {
+                    // Check Local
+                    chrome.storage.local.get(['notesList', 'quickNote'], (localRes) => {
+                        if (localRes.notesList || localRes.quickNote) {
+                            loadData(localRes);
+                            chrome.storage.sync.set(localRes); // Migrate
+                        }
+                    });
+                }
+            });
+        } else if (chrome?.storage?.local) {
             chrome.storage.local.get(['notesList', 'quickNote'], loadData);
         } else {
             const savedList = localStorage.getItem('notesList');
@@ -42,10 +101,22 @@ const Notes = () => {
 
     const saveNotes = (updatedNotes) => {
         setNotes(updatedNotes);
-        if (chrome?.storage?.local) {
+        if (chrome?.storage?.sync) {
+            chrome.storage.sync.set({ notesList: updatedNotes });
+        } else if (chrome?.storage?.local) {
             chrome.storage.local.set({ notesList: updatedNotes });
         } else {
             localStorage.setItem('notesList', JSON.stringify(updatedNotes));
+        }
+    };
+
+    const handleDragEnd = (event) => {
+        const { active, over } = event;
+        if (active.id !== over.id) {
+            const oldIndex = notes.findIndex((n) => n.id === active.id);
+            const newIndex = notes.findIndex((n) => n.id === over.id);
+            const newNotes = arrayMove(notes, oldIndex, newIndex);
+            saveNotes(newNotes);
         }
     };
 
@@ -128,23 +199,37 @@ const Notes = () => {
                     {notes.length === 0 && (
                         <div className="text-center text-gray-500 text-xs mt-4">No scrolls found.</div>
                     )}
-                    {notes.map(note => (
-                        <div
-                            key={note.id}
-                            onClick={() => { playSound.click(); setActiveNoteId(note.id); }}
-                            className={`p-2 rounded cursor-pointer flex justify-between items-center group ${activeNoteId === note.id ? 'bg-[#333] border-l-2 border-[#d4af37]' : 'hover:bg-[#2a282a]'}`}
+
+                    <DndContext
+                        sensors={sensors}
+                        collisionDetection={closestCenter}
+                        onDragEnd={handleDragEnd}
+                    >
+                        <SortableContext
+                            items={notes.map(n => n.id)}
+                            strategy={verticalListSortingStrategy}
                         >
-                            <div className="truncate text-sm text-[#e0e0e0] w-3/4">
-                                {getTitle(note.content)}
-                            </div>
-                            <button
-                                onClick={(e) => deleteNote(e, note.id)}
-                                className="opacity-0 group-hover:opacity-100 text-gray-500 hover:text-red-400 text-xs px-1"
-                            >
-                                🗑️
-                            </button>
-                        </div>
-                    ))}
+                            {notes.map(note => (
+                                <SortableNoteItem key={note.id} note={note}>
+                                    <div
+                                        onClick={() => { playSound.click(); setActiveNoteId(note.id); }}
+                                        className={`p-2 rounded cursor-pointer flex justify-between items-center group touch-none relative ${activeNoteId === note.id ? 'bg-[#333] border-l-2 border-[#d4af37]' : 'hover:bg-[#2a282a]'}`}
+                                    >
+                                        <div className="truncate text-sm text-[#e0e0e0] w-3/4">
+                                            {getTitle(note.content)}
+                                        </div>
+                                        <button
+                                            onClick={(e) => deleteNote(e, note.id)}
+                                            onPointerDown={(e) => e.stopPropagation()}
+                                            className="opacity-0 group-hover:opacity-100 text-gray-500 hover:text-red-400 text-xs px-1"
+                                        >
+                                            🗑️
+                                        </button>
+                                    </div>
+                                </SortableNoteItem>
+                            ))}
+                        </SortableContext>
+                    </DndContext>
                 </div>
             </div>
 

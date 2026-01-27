@@ -35,9 +35,29 @@ function App() {
       if (result.soundEnabled !== undefined) setSoundEnabled(result.soundEnabled);
     };
 
-    if (chrome?.storage?.local) {
-      chrome.storage.local.get(['rpgProfile', 'userTheme', 'userAvatar', 'userConfetti', 'soundEnabled'], loadData);
+    if (chrome?.storage?.sync) {
+      // Try to load from SYNC first
+      chrome.storage.sync.get(['rpgProfile', 'userTheme', 'userAvatar', 'userConfetti', 'soundEnabled'], (syncResult) => {
+        if (Object.keys(syncResult).length > 0) {
+          // Found data in sync
+          loadData(syncResult);
+        } else {
+          // No data in sync, check LOCAL (Migration)
+          chrome.storage.local.get(['rpgProfile', 'userTheme', 'userAvatar', 'userConfetti', 'soundEnabled'], (localResult) => {
+            if (Object.keys(localResult).length > 0) {
+              console.log("Migrating data from Local to Cloud Sync...");
+              loadData(localResult);
+              // Save to Sync
+              chrome.storage.sync.set(localResult);
+            } else {
+              // Brand new user
+              loadData({});
+            }
+          });
+        }
+      });
     } else {
+      // Dev mode fallback
       const savedProfile = localStorage.getItem('rpgProfile');
       const savedTheme = localStorage.getItem('userTheme');
       const savedAvatar = localStorage.getItem('userAvatar');
@@ -54,16 +74,16 @@ function App() {
 
   const handleUpdateProfile = (newProfile) => {
     setProfile(newProfile);
-    if (chrome?.storage?.local) {
-      chrome.storage.local.set({ rpgProfile: newProfile });
+    if (chrome?.storage?.sync) {
+      chrome.storage.sync.set({ rpgProfile: newProfile });
     } else {
       localStorage.setItem('rpgProfile', JSON.stringify(newProfile));
     }
   };
 
   const saveSetting = (key, value) => {
-    if (chrome?.storage?.local) {
-      chrome.storage.local.set({ [key]: value });
+    if (chrome?.storage?.sync) {
+      chrome.storage.sync.set({ [key]: value });
     } else {
       localStorage.setItem(key, value);
     }

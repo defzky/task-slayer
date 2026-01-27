@@ -3,7 +3,16 @@ import React from 'react';
 const Settings = ({ updateProfile }) => {
 
     const handleExport = () => {
-        if (chrome?.storage?.local) {
+        if (chrome?.storage?.sync) {
+            chrome.storage.sync.get(null, (items) => {
+                const blob = new Blob([JSON.stringify(items, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `zky-sidekick-backup-${new Date().toISOString().slice(0, 10)}.json`;
+                a.click();
+            });
+        } else if (chrome?.storage?.local) {
             chrome.storage.local.get(null, (items) => {
                 const blob = new Blob([JSON.stringify(items, null, 2)], { type: 'application/json' });
                 const url = URL.createObjectURL(blob);
@@ -42,7 +51,14 @@ const Settings = ({ updateProfile }) => {
             try {
                 const data = JSON.parse(event.target.result);
                 if (confirm('⚠️ WARNING: This will overwrite your CURRENT progress. Are you sure?')) {
-                    if (chrome?.storage?.local) {
+                    if (chrome?.storage?.sync) {
+                        chrome.storage.sync.clear(() => {
+                            chrome.storage.sync.set(data, () => {
+                                alert('Import successful! Reloading...');
+                                window.location.reload();
+                            });
+                        });
+                    } else if (chrome?.storage?.local) {
                         chrome.storage.local.clear(() => {
                             chrome.storage.local.set(data, () => {
                                 alert('Import successful! Reloading...');
@@ -71,7 +87,11 @@ const Settings = ({ updateProfile }) => {
         if (confirm('🚨 DANGER: This will WIPE ALL DATA (Quests, Notes, Gold, XP). There is no turning back.\n\nType "DELETE" to confirm.')) {
             const input = prompt('Type "DELETE" to confirm hard reset:');
             if (input === 'DELETE') {
-                if (chrome?.storage?.local) {
+                if (chrome?.storage?.sync) {
+                    chrome.storage.sync.clear(() => {
+                        window.location.reload();
+                    });
+                } else if (chrome?.storage?.local) {
                     chrome.storage.local.clear(() => {
                         window.location.reload();
                     });

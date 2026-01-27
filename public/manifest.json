@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
     "name": "Zky's RPG Sidekick",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "description": "A gamified productivity companion for developers: Quests, Notes, and Context Management.",
     "permissions": [
         "tabs",
@@ -22,5 +22,14 @@
         "16": "vite.svg",
         "48": "vite.svg",
         "128": "vite.svg"
+    },
+    "commands": {
+        "_execute_side_panel": {
+            "suggested_key": {
+                "default": "Alt+Q",
+                "mac": "Alt+Q"
+            },
+            "description": "Open Side Panel"
+        }
     }
 }
