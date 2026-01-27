@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Toaster } from 'sonner';
 import Notes from './components/Notes';
 import Freezer from './components/Freezer';
 import Quests from './components/Quests';
@@ -137,6 +138,7 @@ function App() {
 
   return (
     <div className={`w-full h-screen flex overflow-hidden transition-colors duration-300 ${getThemeColors()}`}>
+      <Toaster position="bottom-right" theme="dark" richColors />
 
       {/* Class Selector Modal */}
       {showClassSelector && (

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
 import { playSound } from '../utils/soundfx';
 import {
@@ -171,10 +172,8 @@ const Notes = () => {
     };
 
     const handleManualSave = () => {
-        setStatusMsg('Saved!');
         playSound.coin();
-        setTimeout(() => setStatusMsg(''), 2000);
-        // Notes are technically auto-saved on change, but this gives feedback
+        toast.success("Scroll saved to archives!");
     };
 
     const activeNote = notes.find(n => n.id === activeNoteId);

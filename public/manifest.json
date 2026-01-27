@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
     "name": "Task Slayer: RPG Productivity",
-    "version": "1.2.1",
+    "version": "1.3.0",
     "description": "A gamified productivity companion for developers: Quests, Notes, and Context Management.",
     "permissions": [
         "tabs",
@@ -19,9 +19,9 @@
         "default_path": "index.html"
     },
     "icons": {
-        "16": "vite.svg",
-        "48": "vite.svg",
-        "128": "vite.svg"
+        "16": "icon-16.png",
+        "48": "icon-48.png",
+        "128": "icon-128.png"
     },
     "commands": {
         "_execute_side_panel": {
