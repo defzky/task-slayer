@@ -19,9 +19,9 @@
         "default_path": "index.html"
     },
     "icons": {
-        "16": "vite.svg",
-        "48": "vite.svg",
-        "128": "vite.svg"
+        "16": "icon16.png",
+        "48": "icon48.png",
+        "128": "icon128.png"
     },
     "commands": {
         "_execute_side_panel": {
