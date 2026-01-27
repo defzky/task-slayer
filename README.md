@@ -1,4 +1,4 @@
-# Zky's RPG Sidekick 🧙‍♂️⚔️
+# Task Slayer: RPG Productivity 🧙‍♂️⚔️
 
 A productivity extension for developers disguised as a cozy RPG. Gamify your coding tasks, manage your work context, and keep your thoughts organized.
 
