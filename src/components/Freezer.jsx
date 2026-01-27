@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { toast } from 'sonner';
 
 const Freezer = () => {
     const [sessions, setSessions] = useState([]);
@@ -57,6 +58,7 @@ const Freezer = () => {
         };
 
         saveSessions([newSession, ...sessions]);
+        toast.success("Time frozen! Context saved.");
     };
 
     const handleRestore = (session) => {
@@ -65,7 +67,7 @@ const Freezer = () => {
             chrome.windows.create({ url: urls });
         } else {
             console.log('Restoring session:', session.name);
-            alert(`Restoring ${session.tabs.length} tabs:\n${session.tabs.map(t => t.url).join('\n')}`);
+            toast.info(`Restoring ${session.tabs.length} tabs locally (check console)`);
         }
     };
 

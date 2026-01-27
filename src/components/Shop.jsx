@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { toast } from 'sonner';
 import { playSound } from '../utils/soundfx';
 
 const Shop = ({ profile, updateProfile, setTheme, setAvatar, setConfetti, soundEnabled }) => {
@@ -78,10 +79,11 @@ const Shop = ({ profile, updateProfile, setTheme, setAvatar, setConfetti, soundE
                 if (item.type === 'theme') setTheme(item.value);
                 if (item.type === 'avatar') setAvatar(item.value);
                 if (item.type === 'confetti') setConfetti(item.value);
+                toast.success(`Purchased ${item.name}!`);
             }
         } else {
             if (soundEnabled) playSound.error();
-            alert("Not enough Gold, adventurer!");
+            toast.error("Not enough Gold, adventurer!");
         }
     };
 

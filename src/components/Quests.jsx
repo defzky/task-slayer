@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { toast } from 'sonner';
 import confetti from 'canvas-confetti';
 import { playSound } from '../utils/soundfx';
 import {
@@ -412,70 +413,111 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled })
                     >
                         {activeQuests.map(quest => (
                             <SortableQuestItem key={quest.id} quest={quest}>
-                                <div className={`bg-[#2a282a] border-l-4 ${quest.type === 'boss' ? 'border-l-red-600 border border-red-900/50' : 'border-l-[#d4af37]'} rounded-r p-4 transition-colors relative mb-3 group`}>
+                                {/* Boss Card Design */}
+                                {quest.type === 'boss' ? (
+                                    <div className="relative group">
+                                        {/* Animated Glow Background */}
+                                        <div className="absolute -inset-0.5 bg-gradient-to-r from-red-600 to-orange-600 rounded-lg blur opacity-40 group-hover:opacity-75 transition duration-1000 group-hover:duration-200 animate-pulse"></div>
 
-                                    <div className="flex justify-between items-start">
-                                        <div className="flex-1 cursor-grab active:cursor-grabbing">
-                                            <div className={`font-bold text-base ${quest.type === 'boss' ? 'text-red-400 uppercase tracking-wider' : 'text-[#e0e0e0]'}`}>
-                                                {quest.type === 'boss' && '👹 '} {quest.title}
-                                            </div>
-                                            <div className="text-xs text-[#d4af37] mt-1">Reward: {quest.xpReward} XP</div>
-
-                                            {/* Boss HP Bar */}
-                                            {quest.type === 'boss' && (
-                                                <div className="mt-2 mb-2">
-                                                    <div className="flex justify-between text-[10px] text-red-400 mb-1">
-                                                        <span>BOSS HP</span>
-                                                        <span>{quest.hp} / {quest.maxHp}</span>
+                                        <div className="relative bg-[#1a0f0f] border-2 border-red-900/50 rounded-lg p-4 shadow-[0_0_15px_rgba(220,20,60,0.2)]">
+                                            {/* Header */}
+                                            <div className="flex items-start justify-between mb-4 border-b border-red-900/30 pb-2">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="bg-red-950/50 p-2 rounded-lg border border-red-800 text-2xl shadow-[0_0_10px_rgba(220,20,60,0.3)]">
+                                                        👹
                                                     </div>
-                                                    <div className="w-full h-4 bg-red-950 rounded-full overflow-hidden border border-red-800">
-                                                        <div
-                                                            className="h-full bg-red-600 transition-all duration-300"
-                                                            style={{ width: `${(quest.hp / quest.maxHp) * 100}%` }}
-                                                        />
+                                                    <div>
+                                                        <div className="text-red-100 font-bold text-lg tracking-wider font-serif uppercase drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)]">
+                                                            {quest.title}
+                                                        </div>
+                                                        <div className="text-red-400/60 text-xs font-mono uppercase tracking-widest">
+                                                            Boss Battle • {quest.xpReward} XP Reward
+                                                        </div>
                                                     </div>
                                                 </div>
-                                            )}
+                                                <div className="text-red-500 cursor-pointer hover:text-red-300" onClick={(e) => { e.stopPropagation(); deleteQuest(quest.id); }}>
+                                                    ✕
+                                                </div>
+                                            </div>
 
-                                            {/* Subtasks (Minions) */}
-                                            {quest.type === 'boss' && (
-                                                <div className="mt-3 pl-2 border-l-2 border-red-900/30">
-                                                    <div className="space-y-1">
-                                                        {quest.subtasks?.map(sub => (
-                                                            !sub.completed && (
-                                                                <div key={sub.id} className="flex items-center gap-2 group/sub">
-                                                                    <button
-                                                                        onClick={(e) => { e.stopPropagation(); completeSubtask(quest.id, sub.id); }} // Stop drag
-                                                                        onPointerDown={(e) => e.stopPropagation()} // Prevent drag start on button
-                                                                        className="w-4 h-4 rounded border border-red-500 hover:bg-red-500 flex items-center justify-center text-[10px]"
-                                                                    >
-                                                                        ⚔️
-                                                                    </button>
-                                                                    <span className="text-xs text-gray-400">{sub.title}</span>
-                                                                </div>
-                                                            )
+                                            {/* HP Bar */}
+                                            <div className="mb-4">
+                                                <div className="flex justify-between text-[10px] text-red-500 mb-1 font-bold tracking-widest uppercase">
+                                                    <span>DANGER LEVEL</span>
+                                                    <span>{quest.hp} / {quest.maxHp} HP</span>
+                                                </div>
+                                                <div className="h-4 bg-[#2a1010] rounded border border-red-900 overflow-hidden relative shadow-inner">
+                                                    {/* Health Fill */}
+                                                    <div
+                                                        className="h-full bg-gradient-to-r from-red-900 via-red-600 to-orange-600 transition-all duration-300 relative"
+                                                        style={{ width: `${(quest.hp / quest.maxHp) * 100}%` }}
+                                                    >
+                                                        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/diagonal-stripes.png')] opacity-30"></div>
+                                                    </div>
+                                                    {/* Segments (overlay) */}
+                                                    <div className="absolute inset-0 flex">
+                                                        {[...Array(10)].map((_, i) => (
+                                                            <div key={i} className="flex-1 border-r border-[#1a0f0f]/30 last:border-0"></div>
                                                         ))}
                                                     </div>
+                                                </div>
+                                            </div>
 
-                                                    {/* Add Subtask Input */}
+                                            {/* Minions (Subtasks) Grid */}
+                                            <div className="space-y-2">
+                                                <div className="text-[10px] text-red-500/50 uppercase font-bold tracking-widest mb-1">Minions (Subtasks)</div>
+                                                <div className="grid grid-cols-1 gap-2">
+                                                    {quest.subtasks?.map(sub => (
+                                                        !sub.completed && (
+                                                            <div key={sub.id} className="group/minion flex items-center gap-3 bg-[#2a1010]/50 border border-red-900/30 p-2 rounded hover:bg-red-900/20 transition-all relative overflow-hidden">
+                                                                {/* Selection Indicator */}
+                                                                <div className="absolute left-0 top-0 bottom-0 w-1 bg-red-600 opacity-0 group-hover/minion:opacity-100 transition-opacity"></div>
+
+                                                                <button
+                                                                    onClick={(e) => { e.stopPropagation(); completeSubtask(quest.id, sub.id); }}
+                                                                    onPointerDown={(e) => e.stopPropagation()}
+                                                                    className="w-5 h-5 rounded border border-red-500 hover:bg-red-600 flex items-center justify-center text-[10px] transition-colors shadow-[0_0_5px_rgba(220,20,60,0.4)]"
+                                                                >
+                                                                    ⚔️
+                                                                </button>
+                                                                <span className="text-sm text-red-100/80 font-mono">{sub.title}</span>
+                                                            </div>
+                                                        )
+                                                    ))}
+                                                </div>
+
+                                                {/* Add Minion Input */}
+                                                <div className="mt-2 relative">
                                                     <input
                                                         type="text"
-                                                        placeholder="+ Add Minion check..."
-                                                        className="mt-2 w-full bg-transparent border-b border-[#444] text-xs py-1 focus:outline-none focus:border-red-500 text-gray-500 placeholder-gray-700"
+                                                        placeholder="+ SUMMON MINION..."
+                                                        className="w-full bg-[#1a0f0f] border border-red-900/30 text-xs py-2 px-3 rounded text-red-200 placeholder-red-900/50 focus:outline-none focus:border-red-600 focus:shadow-[0_0_10px_rgba(220,20,60,0.2)] transition-all font-mono"
                                                         onKeyDown={(e) => {
+                                                            if (e.key === ' ') { e.stopPropagation(); }
                                                             if (e.key === 'Enter') {
                                                                 addSubtask(quest.id, e.currentTarget.value);
                                                                 e.currentTarget.value = '';
                                                             }
                                                         }}
-                                                        onPointerDown={(e) => e.stopPropagation()} // Allow interaction
+                                                        onPointerDown={(e) => e.stopPropagation()}
                                                     />
                                                 </div>
-                                            )}
+                                            </div>
                                         </div>
+                                    </div>
+                                ) : (
+                                    /* Standard Quest Card (Existing logic preserved, just wrapped in fragment if needed) */
+                                    <div className={`bg-[#2a282a] border-l-4 border-l-[#d4af37] rounded-r p-4 transition-colors relative mb-3 group`}>
 
-                                        <div className="flex items-center gap-3 pl-2">
-                                            {quest.type !== 'boss' && (
+                                        <div className="flex justify-between items-start">
+                                            <div className="flex-1 cursor-grab active:cursor-grabbing">
+                                                <div className="font-bold text-base text-[#e0e0e0]">
+                                                    {quest.title}
+                                                </div>
+                                                <div className="text-xs text-[#d4af37] mt-1">Reward: {quest.xpReward} XP</div>
+                                            </div>
+
+                                            <div className="flex items-center gap-3 pl-2">
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); completeQuest(quest.id); }}
                                                     onPointerDown={(e) => e.stopPropagation()}
@@ -484,18 +526,18 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled })
                                                 >
                                                     ✔
                                                 </button>
-                                            )}
-                                            <button
-                                                onClick={(e) => { e.stopPropagation(); deleteQuest(quest.id); }}
-                                                onPointerDown={(e) => e.stopPropagation()}
-                                                className="text-gray-500 hover:text-red-400 text-sm px-2"
-                                                title="Abandon Quest"
-                                            >
-                                                ✕
-                                            </button>
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); deleteQuest(quest.id); }}
+                                                    onPointerDown={(e) => e.stopPropagation()}
+                                                    className="text-gray-500 hover:text-red-400 text-sm px-2"
+                                                    title="Abandon Quest"
+                                                >
+                                                    ✕
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
+                                )}
                             </SortableQuestItem>
                         ))}
                     </SortableContext>
