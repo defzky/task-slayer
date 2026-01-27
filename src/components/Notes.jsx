@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
+import rehypeRaw from 'rehype-raw';
 import { playSound } from '../utils/soundfx';
 import {
     DndContext,
@@ -37,6 +38,44 @@ const SortableNoteItem = ({ note, isActive, onClick, onDelete, children }) => {
     return (
         <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
             {children}
+        </div>
+    );
+};
+
+// Custom Pre Block with Copy Button
+const PreBlock = ({ children, ...props }) => {
+    const handleCopy = () => {
+        // Extract text content from children
+        let textToCopy = '';
+        if (children && children.props && children.props.children) {
+            textToCopy = children.props.children;
+        } else if (typeof children === 'string') {
+            textToCopy = children;
+        } else if (Array.isArray(children)) {
+            textToCopy = children.map(child => {
+                if (typeof child === 'string') return child;
+                if (child.props && child.props.children) return child.props.children;
+                return '';
+            }).join('');
+        }
+
+        navigator.clipboard.writeText(textToCopy);
+        toast.success('Copied to clipboard!');
+        playSound.coin();
+    };
+
+    return (
+        <div className="relative group/code mb-4">
+            <button
+                onClick={handleCopy}
+                className="absolute right-2 top-2 bg-[#444] hover:bg-[#d4af37] hover:text-black text-xs text-white px-2 py-1 rounded opacity-0 group-hover/code:opacity-100 transition-opacity z-10"
+                title="Copy to clipboard"
+            >
+                📋 Copy
+            </button>
+            <pre {...props} className="relative">
+                {children}
+            </pre>
         </div>
     );
 };
@@ -280,7 +319,14 @@ const Notes = () => {
                                 />
                             ) : (
                                 <div className="w-full h-full bg-[#2a282a] p-4 text-[#dcdcdc] overflow-y-auto prose prose-invert prose-sm max-w-none">
-                                    <ReactMarkdown>{activeNote.content}</ReactMarkdown>
+                                    <ReactMarkdown
+                                        rehypePlugins={[rehypeRaw]}
+                                        components={{
+                                            pre: PreBlock
+                                        }}
+                                    >
+                                        {activeNote.content}
+                                    </ReactMarkdown>
                                 </div>
                             )}
                         </div>
