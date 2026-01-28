@@ -14,6 +14,7 @@ function App() {
   const [confettiStyle, setConfettiStyle] = useState('default');
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [profile, setProfile] = useState({ level: 1, xp: 0, maxXp: 100, gold: 0, userClass: 'Novice' });
+  const [inventory, setInventory] = useState([]); // [{id, count, name, type, description}]
   const [showClassSelector, setShowClassSelector] = useState(false);
 
   // Load Profile & Theme on mount
@@ -33,18 +34,20 @@ function App() {
       if (result.userTheme) setTheme(result.userTheme);
       if (result.userAvatar) setAvatar(result.userAvatar);
       if (result.userConfetti) setConfettiStyle(result.userConfetti);
+      if (result.userConfetti) setConfettiStyle(result.userConfetti);
       if (result.soundEnabled !== undefined) setSoundEnabled(result.soundEnabled);
+      if (result.inventory) setInventory(result.inventory);
     };
 
     if (chrome?.storage?.sync) {
       // Try to load from SYNC first
-      chrome.storage.sync.get(['rpgProfile', 'userTheme', 'userAvatar', 'userConfetti', 'soundEnabled'], (syncResult) => {
+      chrome.storage.sync.get(['rpgProfile', 'userTheme', 'userAvatar', 'userConfetti', 'soundEnabled', 'inventory'], (syncResult) => {
         if (Object.keys(syncResult).length > 0) {
           // Found data in sync
           loadData(syncResult);
         } else {
           // No data in sync, check LOCAL (Migration)
-          chrome.storage.local.get(['rpgProfile', 'userTheme', 'userAvatar', 'userConfetti', 'soundEnabled'], (localResult) => {
+          chrome.storage.local.get(['rpgProfile', 'userTheme', 'userAvatar', 'userConfetti', 'soundEnabled', 'inventory'], (localResult) => {
             if (Object.keys(localResult).length > 0) {
               console.log("Migrating data from Local to Cloud Sync...");
               loadData(localResult);
@@ -64,12 +67,14 @@ function App() {
       const savedAvatar = localStorage.getItem('userAvatar');
       const savedConfetti = localStorage.getItem('userConfetti');
       const savedSound = localStorage.getItem('soundEnabled');
+      const savedInventory = localStorage.getItem('inventory');
 
       if (savedProfile) setProfile(JSON.parse(savedProfile));
       if (savedTheme) setTheme(savedTheme);
       if (savedAvatar) setAvatar(savedAvatar);
       if (savedConfetti) setConfettiStyle(savedConfetti);
       if (savedSound !== null) setSoundEnabled(JSON.parse(savedSound));
+      if (savedInventory) setInventory(JSON.parse(savedInventory));
     }
   }, []);
 
@@ -79,6 +84,15 @@ function App() {
       chrome.storage.sync.set({ rpgProfile: newProfile });
     } else {
       localStorage.setItem('rpgProfile', JSON.stringify(newProfile));
+    }
+  };
+
+  const handleUpdateInventory = (newInventory) => {
+    setInventory(newInventory);
+    if (chrome?.storage?.sync) {
+      chrome.storage.sync.set({ inventory: newInventory });
+    } else {
+      localStorage.setItem('inventory', JSON.stringify(newInventory));
     }
   };
 
@@ -207,6 +221,8 @@ function App() {
           avatar={avatar}
           confettiStyle={confettiStyle}
           soundEnabled={soundEnabled}
+          inventory={inventory}
+          updateInventory={handleUpdateInventory}
         />}
         {activeTab === 'shop' && <Shop
           profile={profile}
@@ -215,6 +231,8 @@ function App() {
           setAvatar={handleSetAvatar}
           setConfetti={handleSetConfetti}
           soundEnabled={soundEnabled}
+          inventory={inventory}
+          updateInventory={handleUpdateInventory}
         />}
         {activeTab === 'settings' && <Settings updateProfile={handleUpdateProfile} />}
       </main>

@@ -1,24 +1,31 @@
 # Changelog
 
+## [1.6.0] - 2026-01-28
+### Added
+- **Quest Tabs**: Reorganized quest board into "Active", "Completed", and "Failed" (Expired) tabs.
+- **Quest Editing**: Added ability to edit active quest titles and deadlines.
+- **Delete Confirmation**: Added safety prompt before abandoning quests.
+- **Scroll of Reschedule Logic**: Changing a deadline now checks for a Scroll of Reschedule in inventory (with RP flavor text).
+- **Failed Quest Handling**: Expired quests are now visually distinct in the "Failed" tab.
+
 ## [1.5.0] - 2026-01-28
 ### Added
-- **Dynamic Boss HP**: Boss Health is now calculated dynamically based on the percentage of active minions (subtasks) remaining. Defeating minions visually damages the boss.
-- **Quest Deadlines**: Added a date/time picker when creating quests.
-- **Deadline Indicators**: Quests with deadlines now show the due date on the card. Overdue quests are highlighted with a pulsing red 'OVERDUE!' warning.
-- **Defeated Boss Graveyard**: Defeated bosses now remain in the "Completed" list with a special "DEFEATED" style, allowing you to review the minions you conquered.
+- **Item Drops**: Random chance to find items (Potions, Scrolls, Keys) upon quest completion.
+- **Inventory System**: New "Inventory" tab in Shop to view and use items.
+- **Dynamic Boss HP**: Boss HP is now calculated based on subtask completion percentage.
+- **Deadlines**: Added deadline field to quests with visual overdue indicators.
+- **Daily Streak Fixes**: Improved logic for daily login streaks.
 
-### Changed
-- Improved Boss Battle card visuals with new animations and layout.
-- "Completed" section for bosses now shows full details instead of a simple strikethrough.
-
-## [1.4.0] - 2026-01-28
+## [1.4.0] - 2026-01-27
 ### Added
-- Markdown Support for Notes.
-- Copy Code Button implementation.
-- Note Editor UI improvements.
+- **Boss Mode**: Special "Boss Battle" quests with subtasks (Minions) and a health bar.
+- **Subtasks**: Ability to add breakdown tasks to any quest (primarily for Bosses).
+- **Sound Effects**: Added SFX for completing tasks, boss hits, and level ups.
+- **Confetti**: Visual celebration effects for victories.
 
-## [1.3.0] - 2026-01-28
+## [1.3.0] - 2026-01-27
 ### Added
-- Initial Boss Battle Mode.
-- Toast Notifications.
-- Updated Icons.
+- **Profile System**: XP, Levels, Gold, and Class titles (Novice, Code Warrior, etc.).
+- **Shop System**: Buy avatars and confetti styles with earned Gold.
+- **Theme**: Dark fantasy RPG aesthetic with gold accents.
+- **Persistence**: Data saved to Chrome Storage (Sync/Local).
