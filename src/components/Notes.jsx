@@ -80,7 +80,7 @@ const PreBlock = ({ children, ...props }) => {
     );
 };
 
-const Notes = () => {
+const Notes = ({ profile, updateProfile }) => {
     // Data Structure: [{ id: 123, content: "...", updatedAt: "..." }]
     const [notes, setNotes] = useState([]);
     const [activeNoteId, setActiveNoteId] = useState(null);
@@ -172,6 +172,18 @@ const Notes = () => {
             updatedAt: new Date().toISOString()
         };
         const updated = [newNote, ...notes];
+        // Update Stats if creating new note
+        if (profile && updateProfile) {
+            const currentStats = profile.stats || {};
+            updateProfile({
+                ...profile,
+                stats: {
+                    ...currentStats,
+                    notesCreated: (currentStats.notesCreated || 0) + 1
+                }
+            });
+        }
+
         saveNotes(updated);
         setActiveNoteId(newNote.id);
     };
@@ -227,14 +239,19 @@ const Notes = () => {
     return (
         <div className="h-full flex flex-col gap-2">
             {/* TOP: Notes List (Saved Scrolls) */}
-            <div className="h-1/3 bg-[#232123] border border-[#444] rounded-lg flex flex-col">
-                <div className="flex justify-between items-center p-2 border-b border-[#333] bg-[#2a282a] rounded-t-lg">
-                    <span className="text-xs font-bold text-[#d4af37]">📜 Saved Scrolls</span>
+            <div className="h-1/3 bg-[#1a181a] border-2 border-[#444] rounded-lg flex flex-col shadow-[0_0_20px_rgba(0,0,0,0.5)] relative overflow-hidden">
+                {/* Decorative sheen */}
+                <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-[#d4af37]/10 to-transparent pointer-events-none"></div>
+
+                <div className="flex justify-between items-center p-3 border-b border-[#333] bg-[#222022]">
+                    <span className="text-sm font-bold text-[#d4af37] font-serif tracking-wider flex items-center gap-2">
+                        📜 <span className="drop-shadow-md">Nalan's Grimoire</span>
+                    </span>
                     <button
                         onClick={createNote}
-                        className="text-xs bg-[#1e1e1e] hover:bg-[#d4af37] hover:text-black border border-[#d4af37] text-[#d4af37] px-2 py-1 rounded transition-colors"
+                        className="text-xs bg-gradient-to-r from-[#d4af37] to-[#b4941f] text-black font-bold border border-[#d4af37] px-3 py-1.5 rounded shadow-[0_0_10px_rgba(212,175,55,0.4)] hover:scale-105 transition-transform"
                     >
-                        + New
+                        + Inscribe New
                     </button>
                 </div>
                 <div className="flex-1 overflow-y-auto p-1 space-y-1">
@@ -276,49 +293,52 @@ const Notes = () => {
             </div>
 
             {/* BOTTOM: Editor */}
-            <div className="flex-1 bg-[#232123] border border-[#444] rounded-lg flex flex-col overflow-hidden">
+            <div className="flex-1 bg-[#1a181a] border-2 border-[#444] rounded-lg flex flex-col overflow-hidden relative shadow-2xl">
                 {activeNote ? (
                     <>
                         {/* Editor Toolbar */}
-                        <div className="flex justify-between items-center p-2 border-b border-[#333] bg-[#2a282a]">
+                        <div className="flex justify-between items-center p-2 border-b border-[#333] bg-[#222022]">
                             <div className="flex items-center gap-2">
-                                <span className="text-xs text-gray-500">Editing...</span>
-                                {statusMsg && <span className="text-xs text-green-400 animate-pulse">{statusMsg}</span>}
+                                <span className="text-xs text-[#888] font-mono">Runescript...</span>
+                                {statusMsg && <span className="text-xs text-[#d4af37] animate-pulse">✨ {statusMsg}</span>}
                             </div>
                             <div className="flex gap-2">
                                 <button
                                     onClick={handleManualSave}
-                                    className="text-xs bg-[#1e1e1e] hover:bg-[#d4af37] text-[#d4af37] hover:text-black border border-[#d4af37] px-2 py-1 rounded transition-colors"
+                                    className="text-xs bg-[#1a181a] hover:bg-[#d4af37] text-[#d4af37] hover:text-black border border-[#d4af37] px-3 py-1 rounded transition-colors font-serif"
                                 >
-                                    💾 Save
+                                    🔮 Enchant (Save)
                                 </button>
                                 <button
                                     onClick={handleDownload}
-                                    className="text-xs bg-[#1e3a8a] hover:bg-[#2563eb] text-blue-100 px-2 py-1 rounded transition-colors"
+                                    className="text-xs bg-[#1e293b] hover:bg-[#334155] text-blue-200 border border-blue-900/50 px-3 py-1 rounded transition-colors font-serif"
                                 >
-                                    📥 Export
+                                    📜 Export
                                 </button>
                                 <button
                                     onClick={() => setIsPreview(!isPreview)}
-                                    className="text-xs bg-[#444] hover:bg-[#555] px-2 py-1 rounded text-[#ccc] transition-colors"
+                                    className="text-xs bg-[#333] hover:bg-[#555] px-3 py-1 rounded text-[#ccc] transition-colors border border-[#444]"
                                 >
-                                    {isPreview ? '✏️ Edit' : '👁️ Preview'}
+                                    {isPreview ? '✏️ Inscribe' : '👁️ Decipher'}
                                 </button>
                             </div>
                         </div>
 
                         {/* Textarea or Preview */}
-                        <div className="flex-1 relative overflow-hidden">
+                        <div className="flex-1 relative overflow-hidden bg-[#151315]">
+                            {/* Texture Overlay */}
+                            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/dark-leather.png')] opacity-50 pointer-events-none"></div>
+
                             {!isPreview ? (
                                 <textarea
-                                    className="w-full h-full bg-[#2a282a] p-3 text-[#dcdcdc] resize-none focus:outline-none focus:bg-[#2e2c2e] transition-colors"
+                                    className="w-full h-full bg-transparent p-4 text-[#e0d0b0] resize-none focus:outline-none focus:bg-[#1a181a]/50 transition-colors font-mono leading-relaxed relative z-10"
                                     value={activeNote.content}
                                     onChange={(e) => updateActiveNote(e.target.value)}
-                                    placeholder="Write your runes here..."
-                                    style={{ fontFamily: 'monospace' }}
+                                    placeholder="Write your arcane knowledge here..."
+                                    spellCheck={false}
                                 />
                             ) : (
-                                <div className="w-full h-full bg-[#2a282a] p-4 text-[#dcdcdc] overflow-y-auto prose prose-invert prose-sm max-w-none">
+                                <div className="w-full h-full bg-transparent p-6 text-[#e0d0b0] overflow-y-auto prose prose-invert prose-p:font-serif prose-headings:text-[#d4af37] prose-headings:font-serif max-w-none relative z-10">
                                     <ReactMarkdown
                                         rehypePlugins={[rehypeRaw]}
                                         components={{

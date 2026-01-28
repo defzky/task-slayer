@@ -104,60 +104,72 @@ const Settings = ({ updateProfile }) => {
     };
 
     return (
-        <div className="h-full flex flex-col p-2 space-y-6">
-            <h2 className="text-xl font-bold text-[#e0e0e0] border-b border-[#444] pb-2">System Settings</h2>
 
-            {/* Data Management */}
-            <div className="bg-[#2a282a] p-4 rounded-lg border border-[#444]">
-                <h3 className="text-[#d4af37] font-bold mb-4 flex items-center gap-2">
-                    💾 Data Management
+        <div className="h-full flex flex-col p-4">
+            <h2 className="text-2xl font-bold text-[#e0e0e0] border-b-2 border-[#555] pb-2 mb-6 flex items-center gap-3">
+                <span className="text-3xl">⚙️</span> System Menu
+            </h2>
+
+            {/* Data Management (World State) */}
+            <div className="bg-[#1a181a] p-6 rounded-lg border-2 border-[#444] shadow-[0_0_20px_rgba(0,0,0,0.5)] relative overflow-hidden mb-6">
+                {/* Decorative Texture */}
+                <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-10 pointer-events-none"></div>
+
+                <h3 className="text-[#d4af37] font-bold mb-6 flex items-center gap-2 text-lg uppercase tracking-wider border-b border-[#333] pb-2 relative z-10">
+                    💾 World State
                 </h3>
 
-                <div className="space-y-4">
+                <div className="space-y-6 relative z-10">
                     {/* Export */}
-                    <div className="flex justify-between items-center border-b border-[#333] pb-3">
+                    <div className="flex justify-between items-center group">
                         <div>
-                            <div className="text-sm font-bold text-gray-200">Export Save Data</div>
-                            <div className="text-xs text-gray-500">Backup your progress to a JSON file.</div>
+                            <div className="text-base font-bold text-gray-200 group-hover:text-[#d4af37] transition-colors">Chronicle Record (Export)</div>
+                            <div className="text-xs text-gray-500 font-mono">Create a backup scroll of your journey.</div>
                         </div>
                         <button
                             onClick={handleExport}
-                            className="bg-[#1e1e1e] hover:bg-[#333] border border-[#d4af37] text-[#d4af37] px-3 py-1 rounded text-sm transition-colors"
+                            className="bg-[#1e1e1e] hover:bg-[#d4af37] hover:text-black border border-[#d4af37] text-[#d4af37] px-4 py-2 rounded font-bold uppercase tracking-wide transition-all shadow-lg active:scale-95"
                         >
-                            📤 Backup
+                            📤 Create Backup
                         </button>
                     </div>
 
                     {/* Import */}
-                    <div className="flex justify-between items-center border-b border-[#333] pb-3">
+                    <div className="flex justify-between items-center group">
                         <div>
-                            <div className="text-sm font-bold text-gray-200">Import Save Data</div>
-                            <div className="text-xs text-gray-500">Restore progress from a file.</div>
+                            <div className="text-base font-bold text-gray-200 group-hover:text-[#d4af37] transition-colors">Rewrite History (Import)</div>
+                            <div className="text-xs text-gray-500 font-mono">Load a past timeline from a scroll.</div>
                         </div>
-                        <label className="bg-[#1e1e1e] hover:bg-[#333] border border-gray-500 text-gray-300 px-3 py-1 rounded text-sm transition-colors cursor-pointer">
-                            📥 Restore
+                        <label className="bg-[#1e1e1e] hover:bg-[#d4af37] hover:text-black border border-[#d4af37] text-[#d4af37] px-4 py-2 rounded font-bold uppercase tracking-wide transition-all shadow-lg cursor-pointer active:scale-95">
+                            📥 Load Data
                             <input type="file" accept=".json" onChange={handleImport} className="hidden" />
                         </label>
-                    </div>
-
-                    {/* Reset */}
-                    <div className="flex justify-between items-center pt-2">
-                        <div>
-                            <div className="text-sm font-bold text-red-500">Hard Reset</div>
-                            <div className="text-xs text-gray-600">Wipe everything and start fresh.</div>
-                        </div>
-                        <button
-                            onClick={handleReset}
-                            className="bg-red-900/20 hover:bg-red-900/50 border border-red-800 text-red-500 px-3 py-1 rounded text-sm transition-colors"
-                        >
-                            💣 Reset
-                        </button>
                     </div>
                 </div>
             </div>
 
-            <div className="text-center text-xs text-gray-600 mt-auto">
-                Zky's RPG Sidekick v1.0.0
+            {/* Danger Zone (Cataclysm) */}
+            <div className="bg-[#1a0505] p-6 rounded-lg border-2 border-red-900/50 shadow-[0_0_20px_rgba(255,0,0,0.1)] relative overflow-hidden mt-auto">
+                <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/diagmonds-light.png')] opacity-5 pointer-events-none"></div>
+                <h3 className="text-red-500 font-bold mb-4 flex items-center gap-2 uppercase tracking-wider relative z-10">
+                    💀 Cataclysm Protocol
+                </h3>
+                <div className="flex justify-between items-center relative z-10">
+                    <div>
+                        <div className="text-sm font-bold text-red-400">Total Reset</div>
+                        <div className="text-xs text-red-900/70">The world ends. Nothing survives.</div>
+                    </div>
+                    <button
+                        onClick={handleReset}
+                        className="bg-red-950 hover:bg-red-600 text-red-500 hover:text-white border border-red-800 px-4 py-2 rounded font-bold uppercase tracking-widest transition-all shadow-[0_0_10px_rgba(255,0,0,0.2)] hover:shadow-[0_0_20px_rgba(255,0,0,0.6)]"
+                    >
+                        💣 ALL DELETE
+                    </button>
+                </div>
+            </div>
+
+            <div className="text-center text-[10px] text-gray-600 font-mono mt-4 opacity-50">
+                System: Zky's RPG Sidekick v1.6.0 (Stable)
             </div>
         </div>
     );

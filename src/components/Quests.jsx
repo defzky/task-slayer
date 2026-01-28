@@ -334,7 +334,7 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled, i
             }, 1000);
         }
 
-        // Calculate Bonuses
+        // Calculate Bonuses from Class
         let xpBonusMult = 1;
         let goldBonusMult = 1;
         const userClass = profile.userClass || 'Novice';
@@ -342,6 +342,26 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled, i
         if (userClass === 'Code Warrior') xpBonusMult = 1.1;
         if (userClass === 'Pixel Rogue') goldBonusMult = 1.2;
         if (userClass === 'Logic Wizard') { xpBonusMult = 1.05; goldBonusMult = 1.05; }
+
+        // --- PASSIVE SKILL BONUSES ---
+        const unlockedSkills = new Set(profile.unlockedSkills || []);
+        if (unlockedSkills.has('novice_looter')) goldBonusMult += 0.05;
+        if (unlockedSkills.has('midas_touch')) goldBonusMult += 0.15;
+        if (unlockedSkills.has('fast_learner')) xpBonusMult += 0.05;
+
+        // --- CRITICAL MIND (Double Rewards) ---
+        let isCritical = false;
+        if (unlockedSkills.has('critical_mind') && Math.random() < 0.1) {
+            isCritical = true;
+            xpBonusMult *= 2;
+            goldBonusMult *= 2;
+
+            // Critical Toast
+            setTimeout(() => {
+                toast.success("⚡ CRITICAL REWARD! x2 XP & GOLD! ⚡");
+                playSound.bossHit(); // Impact sound
+            }, 1500);
+        }
 
         // Calculate new XP & Gold
         const baseGold = isBossKill ? 100 : (Math.floor(Math.random() * 15) + 5);
@@ -352,10 +372,12 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled, i
         let newGold = (profile.gold || 0) + earnedGold;
         let newLevel = profile.level;
         let newMaxXp = profile.maxXp;
+        let newSkillPoints = profile.skillPoints || 0;
 
         // Level Up Logic
         if (newXp >= profile.maxXp) {
             newLevel += 1;
+            newSkillPoints += 1; // Award 1 SP per level
             newXp = newXp - profile.maxXp; // Carry over excess XP
             newMaxXp = Math.floor(newMaxXp * 1.5); // Increase requirement by 50%
 
@@ -371,9 +393,30 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled, i
                     });
                 }, 500);
             }
+
+            toast.success(`Leveled Up! +1 Skill Point!`);
         }
 
-        const updatedProfile = { level: newLevel, xp: newXp, maxXp: newMaxXp, gold: newGold, userClass: profile.userClass };
+        // --- STATS UPDATE ---
+        const currentStats = profile.stats || {};
+        const newStats = {
+            ...currentStats,
+            questsCompleted: (currentStats.questsCompleted || 0) + 1,
+            bossesDefeated: isBossKill ? (currentStats.bossesDefeated || 0) + 1 : (currentStats.bossesDefeated || 0),
+            totalGoldEarned: (currentStats.totalGoldEarned || 0) + earnedGold
+        };
+
+        const updatedProfile = {
+            level: newLevel,
+            xp: newXp,
+            maxXp: newMaxXp,
+            gold: newGold,
+            userClass: profile.userClass,
+            skillPoints: newSkillPoints,
+            unlockedSkills: profile.unlockedSkills || [],
+            stats: newStats,
+            unlockedAchievements: profile.unlockedAchievements || []
+        };
 
         // Update Quest Status
         // If Boss, ensure HP is 0 and subtasks marked? 
@@ -696,7 +739,10 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled, i
                                             </div>
                                         ) : (
                                             /* Standard Quest Card (Active) */
-                                            <div className={`bg-[#2a282a] border-l-4 border-l-[#d4af37] rounded-r p-4 transition-colors relative mb-3 group`}>
+                                            <div className="bg-[#1a181a] border border-[#444] border-l-4 border-l-[#d4af37] rounded-r-lg p-4 transition-all relative mb-3 group shadow-[0_2px_5px_rgba(0,0,0,0.3)] hover:shadow-[0_0_15px_rgba(212,175,55,0.1)] overflow-hidden">
+                                                {/* Card Texture */}
+                                                <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/dark-leather.png')] opacity-30 pointer-events-none"></div>
+
 
                                                 <div className="flex justify-between items-start">
                                                     <div className="flex-1 cursor-grab active:cursor-grabbing">
