@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
     "name": "Task Slayer: RPG Productivity",
-    "version": "1.4.0",
+    "version": "1.5.0",
     "description": "A gamified productivity companion for developers: Quests, Notes, and Context Management.",
     "permissions": [
         "tabs",

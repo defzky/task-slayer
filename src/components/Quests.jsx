@@ -45,6 +45,7 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled })
     // profile is now a prop
     const [quests, setQuests] = useState([]);
     const [newQuestTitle, setNewQuestTitle] = useState('');
+    const [newQuestDeadline, setNewQuestDeadline] = useState('');
     const [isBossMode, setIsBossMode] = useState(false);
     const [streak, setStreak] = useState(0);
 
@@ -177,6 +178,7 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled })
             xpReward: isBossMode ? 500 : Math.floor(Math.random() * 30) + 20, // Huge XP for Boss
             hp: isBossMode ? 100 : 0,
             maxHp: isBossMode ? 100 : 0,
+            deadline: newQuestDeadline ? new Date(newQuestDeadline).toISOString() : null,
             subtasks: [],
             completed: false
         };
@@ -185,6 +187,7 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled })
         setQuests(updatedQuests);
         saveState(null, updatedQuests);
         setNewQuestTitle('');
+        setNewQuestDeadline('');
         setIsBossMode(false);
     };
 
@@ -192,9 +195,18 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled })
         if (!taskTitle.trim()) return;
         const updatedQuests = quests.map(q => {
             if (q.id === questId) {
+                const newSubtasks = [...(q.subtasks || []), { id: Date.now(), title: taskTitle, completed: false }];
+                // Recalculate HP if it's a boss
+                let newHp = q.hp;
+                if (q.type === 'boss') {
+                    const total = newSubtasks.length;
+                    const completedCount = newSubtasks.filter(t => t.completed).length;
+                    newHp = Math.floor(((total - completedCount) / total) * 100);
+                }
                 return {
                     ...q,
-                    subtasks: [...(q.subtasks || []), { id: Date.now(), title: taskTitle, completed: false }]
+                    hp: newHp,
+                    subtasks: newSubtasks
                 };
             }
             return q;
@@ -207,22 +219,36 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled })
         const quest = quests.find(q => q.id === questId);
         if (!quest) return;
 
-        // Damage Boss
-        const damage = 20; // Fixed damage per subtask
-        let newHp = Math.max(0, quest.hp - damage);
-
-        if (soundEnabled) playSound.bossHit(); // Heavy impact for Boss Damage
-
-        // Update Subtasks
+        // Update Subtasks First
         const updatedSubtasks = quest.subtasks.map(t =>
             t.id === subtaskId ? { ...t, completed: true } : t
         );
 
-        let bossDefeated = false;
-        if (newHp === 0 && !quest.completed) {
-            bossDefeated = true;
+        // Recalculate Boss HP (Percentage based)
+        let newHp = quest.hp;
+        let isBossDeath = false;
+
+        if (quest.type === 'boss') {
+            const total = updatedSubtasks.length;
+            const completedCount = updatedSubtasks.filter(t => t.completed).length;
+            // HP is percentage of remaining tasks
+            // If total is 5, completed 1. Remaining 4. HP = 80%.
+            newHp = total > 0 ? Math.floor(((total - completedCount) / total) * 100) : 0;
+
+            if (soundEnabled) playSound.bossHit();
+
+            if (newHp === 0 && !quest.completed) {
+                isBossDeath = true;
+            }
+        } else {
+            // Normal quest subtask logic (if any)
+            // Currently normal quests don't really use HP/subtasks prominently, but safe to keep basic
+        }
+
+        if (isBossDeath) {
             // Trigger Boss Defeat Logic (Complete Quest)
-            completeQuest(questId, true); // Pass flag to skip normal completion logic
+            // We pass the updated subtasks to ensure they are saved as completed
+            completeQuest(questId, true, updatedSubtasks);
         } else {
             const updatedQuests = quests.map(q =>
                 q.id === questId ? { ...q, hp: newHp, subtasks: updatedSubtasks } : q
@@ -232,7 +258,7 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled })
         }
     };
 
-    const completeQuest = (id, isBossKill = false) => {
+    const completeQuest = (id, isBossKill = false, forcedSubtasks = null) => {
         const quest = quests.find(q => q.id === id);
         if (!quest || quest.completed) return;
 
@@ -311,7 +337,7 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled })
                 ...q,
                 completed: true,
                 hp: 0,
-                subtasks: q.subtasks ? q.subtasks.map(t => ({ ...t, completed: true })) : []
+                subtasks: forcedSubtasks || (q.subtasks ? q.subtasks.map(t => ({ ...t, completed: true })) : [])
             } : q
         );
 
@@ -376,18 +402,25 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled })
                         {isBossMode ? '👹 BOSS BATTLE Mode' : 'Normal Quest'}
                     </label>
                 </div>
-                <div className="relative">
+                <div className="relative flex gap-2">
                     <input
                         type="text"
                         id="newQuestInput"
                         placeholder={isBossMode ? "Name of the Ancient Evil..." : "New Quest (e.g., Slay the Bug)..."}
                         value={newQuestTitle}
                         onChange={(e) => setNewQuestTitle(e.target.value)}
-                        className={`w-full bg-[#2a282a] border ${isBossMode ? 'border-red-500 text-red-100' : 'border-[#444] text-[#e0e0e0]'} text-base rounded-lg py-3 px-4 pr-10 focus:outline-none focus:border-[#d4af37] placeholder-gray-600`}
+                        className={`flex-1 bg-[#2a282a] border ${isBossMode ? 'border-red-500 text-red-100' : 'border-[#444] text-[#e0e0e0]'} text-base rounded-lg py-3 px-4 focus:outline-none focus:border-[#d4af37] placeholder-gray-600`}
+                    />
+                    <input
+                        type="datetime-local"
+                        value={newQuestDeadline}
+                        onChange={(e) => setNewQuestDeadline(e.target.value)}
+                        className={`w-12 bg-[#2a282a] border ${isBossMode ? 'border-red-500 text-red-100' : 'border-[#444] text-[#e0e0e0]'} rounded-lg px-2 focus:outline-none focus:border-[#d4af37] text-xs text-transparent focus:text-white focus:w-auto transition-all duration-300`}
+                        title="Set Deadline (Optional)"
                     />
                     <button
                         type="submit"
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-[#d4af37] hover:text-white transition-colors text-lg"
+                        className="bg-[#2a282a] border border-[#d4af37] text-[#d4af37] hover:bg-[#d4af37] hover:text-black transition-colors rounded-lg px-4 flex items-center justify-center font-bold"
                     >
                         ➕
                     </button>
@@ -514,7 +547,15 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled })
                                                 <div className="font-bold text-base text-[#e0e0e0]">
                                                     {quest.title}
                                                 </div>
-                                                <div className="text-xs text-[#d4af37] mt-1">Reward: {quest.xpReward} XP</div>
+                                                <div className="text-xs text-[#d4af37] mt-1 flex items-center gap-2">
+                                                    <span>Reward: {quest.xpReward} XP</span>
+                                                    {quest.deadline && (
+                                                        <span className={`flex items-center gap-1 ${new Date(quest.deadline) < new Date() ? 'text-red-500 font-bold animate-pulse' : 'text-gray-400'}`}>
+                                                            ⏰ {new Date(quest.deadline).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                                            {new Date(quest.deadline) < new Date() && ' (OVERDUE!)'}
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </div>
 
                                             <div className="flex items-center gap-3 pl-2">
@@ -547,18 +588,59 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled })
                 {completedQuests.length > 0 && <div className="border-t border-[#333] my-3"></div>}
 
                 {completedQuests.map(quest => (
-                    <div key={quest.id} className="bg-[#1a181a] border border-[#333] rounded p-3 flex justify-between items-center opacity-60 grayscale hover:grayscale-0 transition-all">
-                        <div className="line-through text-gray-500 text-sm">
-                            {quest.type === 'boss' ? '👹 ' : ''}{quest.title}
+                    quest.type === 'boss' ? (
+                        /* Defeated Boss View */
+                        <div key={quest.id} className="relative bg-[#0f0a0a] border border-[#333] rounded-lg p-4 mb-3 opacity-75 hover:opacity-100 transition-all group">
+                            <div className="flex items-start justify-between mb-4 border-b border-[#333] pb-2">
+                                <div className="flex items-center gap-3">
+                                    <div className="bg-[#1a1111] p-2 rounded-lg border border-[#333] text-2xl grayscale">
+                                        💀
+                                    </div>
+                                    <div>
+                                        <div className="text-gray-400 font-bold text-lg tracking-wider font-serif uppercase line-through decoration-red-900/50">
+                                            {quest.title}
+                                        </div>
+                                        <div className="text-red-900/40 text-xs font-mono uppercase tracking-widest">
+                                            DEFEATED • {quest.xpReward} XP EARNED
+                                        </div>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => deleteQuest(quest.id)}
+                                    className="text-gray-600 hover:text-red-400 text-sm px-2"
+                                >
+                                    ✕
+                                </button>
+                            </div>
+
+                            {/* Minions (Read Only) */}
+                            <div className="space-y-1 pl-12 pr-2">
+                                {quest.subtasks?.map(sub => (
+                                    <div key={sub.id} className="flex items-center gap-3 text-gray-600">
+                                        <span className="text-green-900/50 text-xs">✔</span>
+                                        <span className="text-xs font-mono line-through">{sub.title}</span>
+                                    </div>
+                                ))}
+                                {(!quest.subtasks || quest.subtasks.length === 0) && (
+                                    <div className="text-xs text-gray-700 italic">No minions were summoned.</div>
+                                )}
+                            </div>
                         </div>
-                        <div className="text-xs text-gray-600">Completed</div>
-                        <button
-                            onClick={() => deleteQuest(quest.id)}
-                            className="text-gray-600 hover:text-red-400 text-sm px-2"
-                        >
-                            ✕
-                        </button>
-                    </div>
+                    ) : (
+                        /* Normal Completed Quest */
+                        <div key={quest.id} className="bg-[#1a181a] border border-[#333] rounded p-3 flex justify-between items-center opacity-60 grayscale hover:grayscale-0 transition-all mb-2">
+                            <div className="line-through text-gray-500 text-sm">
+                                {quest.title}
+                            </div>
+                            <div className="text-xs text-gray-600">Completed</div>
+                            <button
+                                onClick={() => deleteQuest(quest.id)}
+                                className="text-gray-600 hover:text-red-400 text-sm px-2"
+                            >
+                                ✕
+                            </button>
+                        </div>
+                    )
                 ))}
             </div>
         </div>
