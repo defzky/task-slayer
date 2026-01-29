@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Toaster } from 'sonner';
+import { Toaster, toast } from 'sonner';
 import Notes from './components/Notes';
 import Freezer from './components/Freezer';
 import Quests from './components/Quests';
 import Shop from './components/Shop';
 import SkillTree from './components/SkillTree';
 import Achievements, { ACHIEVEMENTS } from './components/Achievements';
+import RaidBoss from './components/RaidBoss';
 import ClassSelector from './components/ClassSelector';
 import Settings from './components/Settings';
+import { playSound } from './utils/soundfx';
 
 function App() {
   const [activeTab, setActiveTab] = useState('notes');
@@ -27,39 +29,66 @@ function App() {
     unlockedAchievements: []
   });
   const [inventory, setInventory] = useState([]); // [{id, count, name, type, description}]
+  const [activeRaid, setActiveRaid] = useState(null); // { id, name, bossId, maxHp, currentHp, tasks: [] }
   const [showClassSelector, setShowClassSelector] = useState(false);
 
   // Load Profile & Theme on mount
   useEffect(() => {
     const loadData = (result) => {
-      if (result.rpgProfile) {
-        setProfile(result.rpgProfile);
-        // Show selector if class is Novice or missing
-        if (!result.rpgProfile.userClass || result.rpgProfile.userClass === 'Novice') {
-          setShowClassSelector(true);
-        }
+      // 1. Determine Profile (Loaded or Default)
+      let currentProfile = result.rpgProfile || {
+        level: 1,
+        xp: 0,
+        maxXp: 100,
+        gold: 0,
+        userClass: 'Novice',
+        skillPoints: 0,
+        unlockedSkills: [],
+        stats: { questsCompleted: 0, bossesDefeated: 0, totalGoldEarned: 0, notesCreated: 0, itemsBought: 0 },
+        unlockedAchievements: []
+      };
+
+      // 2. Check Daily Login Reward
+      // We need to check if checkDailyLogin is available yet.
+      // Since effect runs after mount, it should be capable of calling the function defined in body.
+      try {
+        currentProfile = checkDailyLogin(currentProfile);
+      } catch (e) {
+        console.error("Daily Login Error", e);
+      }
+
+      // 3. Update State
+      setProfile(currentProfile);
+
+      // 4. Save Immediately (to persist lastLoginDate)
+      if (chrome?.storage?.sync) {
+        chrome.storage.sync.set({ rpgProfile: currentProfile });
       } else {
-        // New user
+        localStorage.setItem('rpgProfile', JSON.stringify(currentProfile));
+      }
+
+      // 5. Handle Other Settings
+      if (!currentProfile.userClass || currentProfile.userClass === 'Novice') {
         setShowClassSelector(true);
       }
 
       if (result.userTheme) setTheme(result.userTheme);
       if (result.userAvatar) setAvatar(result.userAvatar);
       if (result.userConfetti) setConfettiStyle(result.userConfetti);
-      if (result.userConfetti) setConfettiStyle(result.userConfetti);
       if (result.soundEnabled !== undefined) setSoundEnabled(result.soundEnabled);
       if (result.inventory) setInventory(result.inventory);
+      if (result.activeRaid) setActiveRaid(result.activeRaid);
     };
 
     if (chrome?.storage?.sync) {
       // Try to load from SYNC first
-      chrome.storage.sync.get(['rpgProfile', 'userTheme', 'userAvatar', 'userConfetti', 'soundEnabled', 'inventory'], (syncResult) => {
+      chrome.storage.sync.get(['rpgProfile', 'userTheme', 'userAvatar', 'userConfetti', 'soundEnabled', 'inventory', 'activeRaid'], (syncResult) => {
         if (Object.keys(syncResult).length > 0) {
           // Found data in sync
           loadData(syncResult);
         } else {
           // No data in sync, check LOCAL (Migration)
-          chrome.storage.local.get(['rpgProfile', 'userTheme', 'userAvatar', 'userConfetti', 'soundEnabled', 'inventory'], (localResult) => {
+          chrome.storage.local.get(['rpgProfile', 'userTheme', 'userAvatar', 'userConfetti', 'soundEnabled', 'inventory', 'activeRaid'], (localResult) => {
             if (Object.keys(localResult).length > 0) {
               console.log("Migrating data from Local to Cloud Sync...");
               loadData(localResult);
@@ -80,6 +109,7 @@ function App() {
       const savedConfetti = localStorage.getItem('userConfetti');
       const savedSound = localStorage.getItem('soundEnabled');
       const savedInventory = localStorage.getItem('inventory');
+      const savedRaid = localStorage.getItem('activeRaid');
 
       if (savedProfile) setProfile(JSON.parse(savedProfile));
       if (savedTheme) setTheme(savedTheme);
@@ -87,17 +117,68 @@ function App() {
       if (savedConfetti) setConfettiStyle(savedConfetti);
       if (savedSound !== null) setSoundEnabled(JSON.parse(savedSound));
       if (savedInventory) setInventory(JSON.parse(savedInventory));
+      if (savedRaid) setActiveRaid(JSON.parse(savedRaid));
     }
   }, []);
 
-  const handleUpdateProfile = (newProfile) => {
-    // Check for Achievements whenever profile updates (if stats changed)
-    const currentStats = newProfile.stats || {};
-    const unlocked = new Set(newProfile.unlockedAchievements || []);
+  const handleUpdateRaid = (newRaid) => {
+    setActiveRaid(newRaid);
+    if (chrome?.storage?.sync) {
+      chrome.storage.sync.set({ activeRaid: newRaid });
+    } else {
+      localStorage.setItem('activeRaid', JSON.stringify(newRaid));
+    }
+  };
+
+  const calculateLevelUp = (currentProfile) => {
+    let { level, xp, maxXp, skillPoints } = currentProfile;
+    let leveledUp = false;
+    let iterations = 0;
+
+    // Safety: Max 100 level jumps to prevent hangs
+    while (xp >= maxXp && iterations < 100) {
+      xp -= maxXp;
+      level += 1;
+      skillPoints += 1;
+      maxXp = Math.floor(maxXp * 1.2);
+      leveledUp = true;
+      iterations++;
+    }
+
+    return {
+      ...currentProfile,
+      level, xp, maxXp, skillPoints,
+      _leveledUp: leveledUp
+    };
+  };
+
+  const handleUpdateProfile = (profileToUpdate) => {
+    // 1. Calculate new stats safely
+    const processedProfile = calculateLevelUp(profileToUpdate);
+    const leveledUp = processedProfile._leveledUp;
+    delete processedProfile._leveledUp; // Clean up internal flag
+
+    // 2. Handle Side Effects (Visual/Audio)
+    if (leveledUp) {
+      playSound.levelUp();
+      toast.custom((t) => (
+        <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-4 rounded-xl shadow-[0_0_30px_rgba(124,58,237,0.6)] flex items-center gap-4 animate-bounce-slow" onClick={() => setActiveTab('skills')}>
+          <div className="text-4xl">🆙</div>
+          <div>
+            <div className="font-bold text-xl uppercase tracking-widest">Level Up!</div>
+            <div className="text-purple-200">You reached Level {processedProfile.level}! (+1 Skill Point)</div>
+          </div>
+        </div>
+      ), { duration: 6000 });
+    }
+
+    // 3. Check for Achievements
+    const currentStats = processedProfile.stats || {};
+    const unlocked = new Set(processedProfile.unlockedAchievements || []);
     let achievementUnlocked = false;
 
     ACHIEVEMENTS.forEach(ach => {
-      if (!unlocked.has(ach.id) && ach.condition({ ...currentStats, level: newProfile.level })) {
+      if (!unlocked.has(ach.id) && ach.condition({ ...currentStats, level: processedProfile.level })) {
         unlocked.add(ach.id);
         achievementUnlocked = true;
 
@@ -112,19 +193,21 @@ function App() {
           </div>
         ), { duration: 5000 });
 
-        playSound.levelUp();
+        // Don't play duplicate sound if level up just happened
+        if (!leveledUp) playSound.levelUp();
       }
     });
 
     if (achievementUnlocked) {
-      newProfile.unlockedAchievements = Array.from(unlocked);
+      processedProfile.unlockedAchievements = Array.from(unlocked);
     }
 
-    setProfile(newProfile);
+    // 4. Update State & Storage
+    setProfile(processedProfile);
     if (chrome?.storage?.sync) {
-      chrome.storage.sync.set({ rpgProfile: newProfile });
+      chrome.storage.sync.set({ rpgProfile: processedProfile });
     } else {
-      localStorage.setItem('rpgProfile', JSON.stringify(newProfile));
+      localStorage.setItem('rpgProfile', JSON.stringify(processedProfile));
     }
   };
 
@@ -166,7 +249,6 @@ function App() {
     saveSetting('userConfetti', newStyle);
   };
 
-  // Theme Classes
   // Theme Classes - ACCENTS ONLY
   const getThemeColors = () => {
     switch (theme) {
@@ -202,6 +284,58 @@ function App() {
     setShowClassSelector(false);
   };
 
+  // --- DAILY LOGIN LOGIC ---
+  const checkDailyLogin = (currentProfile) => {
+    const today = new Date().toDateString();
+    const lastLogin = currentProfile.lastLoginDate;
+
+    if (lastLogin === today) return currentProfile; // Already claimed
+
+    let newStreak = (currentProfile.streak || 0);
+
+    if (lastLogin) {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      if (lastLogin === yesterday.toDateString()) {
+        newStreak += 1;
+      } else {
+        newStreak = 1; // Reset
+      }
+    } else {
+      newStreak = 1; // First time
+    }
+
+    // Calculate Rewards
+    const baseGold = 50;
+    const baseXp = 100;
+    const multiplier = Math.min(2.5, 1 + (newStreak * 0.1));
+
+    const rewardGold = Math.floor(baseGold * multiplier);
+    const rewardXp = Math.floor(baseXp * multiplier);
+
+    // Toast Notification
+    setTimeout(() => {
+      toast.custom((t) => (
+        <div className="bg-gradient-to-r from-orange-600 to-red-600 text-white p-4 rounded-xl shadow-[0_0_20px_rgba(255,69,0,0.6)] flex items-center gap-4 animate-bounce-slow" onClick={() => setActiveTab('quests')}>
+          <div className="text-4xl">🔥</div>
+          <div>
+            <div className="font-bold text-xl uppercase tracking-widest">Daily Streak: {newStreak}!</div>
+            <div className="text-orange-200">+{rewardGold} Gold | +{rewardXp} XP</div>
+          </div>
+        </div>
+      ), { duration: 6000 });
+      playSound.levelUp(); // Reuse positive sound
+    }, 1500); // Delay slightly for app load
+
+    return {
+      ...currentProfile,
+      lastLoginDate: today,
+      streak: newStreak,
+      gold: (currentProfile.gold || 0) + rewardGold,
+      xp: (currentProfile.xp || 0) + rewardXp
+    };
+  };
+
   return (
     <div className={`w-full h-screen flex overflow-hidden transition-colors duration-300 bg-[#0f0f10] ${getThemeColors()}`}>
       <Toaster position="bottom-right" theme="dark" richColors />
@@ -217,9 +351,17 @@ function App() {
       {/* Sidebar (Runestone Menu) */}
       <nav className={`w-20 flex flex-col items-center py-6 shrink-0 ${getSideNavColors()} border-r-2 shadow-[4px_0_24px_rgba(0,0,0,0.5)] z-20 relative bg-[url('https://www.transparenttextures.com/patterns/dark-matter.png')]`}>
         {/* App Logo / Icon */}
-        <div className="mb-8 text-2xl animate-pulse filter drop-shadow-[0_0_8px_rgba(212,175,55,0.6)]">
+        <div className="mb-2 text-2xl animate-pulse filter drop-shadow-[0_0_8px_rgba(212,175,55,0.6)]">
           🗡️
         </div>
+
+        {/* Streak Counter */}
+        {profile.streak > 0 && (
+          <div className="mb-6 flex flex-col items-center group cursor-help" title={`Daily Streak: ${profile.streak} Days`}>
+            <span className="text-xl animate-fire">🔥</span>
+            <span className="text-[10px] font-bold text-orange-500 font-mono">{profile.streak}</span>
+          </div>
+        )}
 
         <div className="flex flex-col gap-6 w-full px-2">
           <button
@@ -291,6 +433,17 @@ function App() {
 
         <div className="mt-auto flex flex-col items-center gap-4 w-full px-2">
           <button
+            onClick={() => setActiveTab('raids')}
+            className={`group relative w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300 ${activeTab === 'raids' ? 'bg-gradient-to-br from-red-600 to-red-900 text-white shadow-[0_0_15px_rgba(220,38,38,0.5)] scale-110' : 'bg-[#2a282a] border-2 border-[#444] text-gray-400 hover:border-red-500 hover:text-red-500'}`}
+            title="Epic Raids"
+          >
+            <span className="text-xl group-hover:scale-110 transition-transform">🐲</span>
+            <div className="absolute left-14 bg-[#1a0f0f] text-red-500 text-xs font-bold py-1 px-3 rounded border border-red-500 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-xl">
+              Raids
+            </div>
+          </button>
+
+          <button
             onClick={() => setActiveTab('settings')}
             className={`group relative w-10 h-10 rounded-full flex items-center justify-center transition-all ${activeTab === 'settings' ? 'bg-white/20 text-white' : 'hover:bg-white/10 text-gray-500 hover:text-white'}`}
           >
@@ -327,12 +480,18 @@ function App() {
           soundEnabled={soundEnabled}
           inventory={inventory}
           updateInventory={handleUpdateInventory}
+          setActiveRaid={handleUpdateRaid}
+          setActiveTab={setActiveTab}
+          currentTheme={theme}
+          currentAvatar={avatar}
+          currentConfetti={confettiStyle}
         />}
         {activeTab === 'skills' && <SkillTree
           profile={profile}
           updateProfile={handleUpdateProfile}
           soundEnabled={soundEnabled}
         />}
+        {activeTab === 'raids' && <RaidBoss profile={profile} updateProfile={handleUpdateProfile} activeRaid={activeRaid} setActiveRaid={handleUpdateRaid} />}
         {activeTab === 'achievements' && <Achievements profile={profile} />}
         {activeTab === 'settings' && <Settings updateProfile={handleUpdateProfile} />}
       </main>

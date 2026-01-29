@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { playSound } from '../utils/soundfx';
 
-const Shop = ({ profile, updateProfile, setTheme, setAvatar, setConfetti, soundEnabled, inventory, updateInventory }) => {
-    const [activeTab, setActiveTab] = useState('merchant'); // 'merchant' | 'inventory'
+const Shop = ({ profile, updateProfile, setTheme, setAvatar, setConfetti, soundEnabled, inventory, updateInventory, setActiveRaid, setActiveTab, currentTheme, currentAvatar, currentConfetti }) => {
+    const [shopTab, setShopTab] = useState('merchant'); // 'merchant' | 'inventory'
     const [items, setItems] = useState([
         { id: 'theme_default', name: 'Standard Gear', price: 0, type: 'theme', value: 'default', purchased: true },
         { id: 'theme_cyber', name: 'Cyberpunk Neon', price: 100, type: 'theme', value: 'cyber', purchased: false },
@@ -20,6 +20,11 @@ const Shop = ({ profile, updateProfile, setTheme, setAvatar, setConfetti, soundE
         { id: 'cf_default', name: 'Paper Scraps', price: 0, type: 'confetti', value: 'default', purchased: true },
         { id: 'cf_fire', name: 'Fireball', price: 200, type: 'confetti', value: 'fire', purchased: false },
         { id: 'cf_ice', name: 'Ice Shards', price: 200, type: 'confetti', value: 'ice', purchased: false },
+
+        // Consumables
+        { id: 'mystery_key', name: 'Mystery Key', price: 500, type: 'consumable', value: 'key', description: 'Unlocks Ancient Gates', purchased: false },
+        { id: 'potion_focus', name: 'Potion of Focus', price: 50, type: 'consumable', value: 'potion', description: 'Boosts concentration music', purchased: false },
+        { id: 'scroll_reschedule', name: 'Time Scroll', price: 100, type: 'consumable', value: 'scroll', description: 'Manipulate quest time', purchased: false },
     ]);
 
     useEffect(() => {
@@ -30,7 +35,7 @@ const Shop = ({ profile, updateProfile, setTheme, setAvatar, setConfetti, soundE
                     const purchasedIds = new Set(res.purchasedItems);
                     setItems(prev => prev.map(item => ({
                         ...item,
-                        purchased: item.price === 0 || purchasedIds.has(item.id)
+                        purchased: item.type !== 'consumable' && (item.price === 0 || purchasedIds.has(item.id))
                     })));
                 }
             });
@@ -40,7 +45,7 @@ const Shop = ({ profile, updateProfile, setTheme, setAvatar, setConfetti, soundE
                 const purchasedIds = new Set(JSON.parse(saved));
                 setItems(prev => prev.map(item => ({
                     ...item,
-                    purchased: item.price === 0 || purchasedIds.has(item.id)
+                    purchased: item.type !== 'consumable' && (item.price === 0 || purchasedIds.has(item.id))
                 })));
             }
         }
@@ -56,8 +61,8 @@ const Shop = ({ profile, updateProfile, setTheme, setAvatar, setConfetti, soundE
     };
 
     const buyItem = (item) => {
-        if (item.purchased) {
-            // Equip
+        // Cosmetic Equip Logic
+        if (item.type !== 'consumable' && item.purchased) {
             if (item.type === 'theme') setTheme(item.value);
             if (item.type === 'avatar') setAvatar(item.value);
             if (item.type === 'confetti') setConfetti(item.value);
@@ -69,11 +74,12 @@ const Shop = ({ profile, updateProfile, setTheme, setAvatar, setConfetti, soundE
 
         if ((profile.gold || 0) >= finalPrice) {
             if (confirm(`Purchase ${item.name} for ${finalPrice} Gold?`)) {
-                playSound.coin(); // Should be a "Cha-ching" but coin works
+                playSound.coin();
 
                 // Deduct Gold & Update Stats
                 const newGold = profile.gold - finalPrice;
                 const currentStats = profile.stats || {};
+
                 updateProfile({
                     ...profile,
                     gold: newGold,
@@ -83,23 +89,47 @@ const Shop = ({ profile, updateProfile, setTheme, setAvatar, setConfetti, soundE
                     }
                 });
 
-                // Mark as purchased
-                const updatedItems = items.map(i => i.id === item.id ? { ...i, purchased: true } : i);
-                setItems(updatedItems);
+                // Handle Item Type
+                if (item.type === 'consumable') {
+                    // Update Inventory
+                    const currentInventory = inventory || [];
+                    const existingItem = currentInventory.find(i => i.id === item.id);
+                    let newInventory;
 
-                // Save Purchased State
-                const purchasedIds = updatedItems.filter(i => i.purchased).map(i => i.id);
-                if (chrome?.storage?.local) {
-                    chrome.storage.local.set({ purchasedItems: purchasedIds });
+                    if (existingItem) {
+                        newInventory = currentInventory.map(i =>
+                            i.id === item.id ? { ...i, count: i.count + 1 } : i
+                        );
+                    } else {
+                        newInventory = [...currentInventory, {
+                            id: item.id,
+                            name: item.name,
+                            type: item.type,
+                            description: item.description,
+                            count: 1
+                        }];
+                    }
+                    updateInventory(newInventory);
+                    toast.success(`Purchased ${item.name}! Added to Backpack.`);
                 } else {
-                    localStorage.setItem('purchasedItems', JSON.stringify(purchasedIds));
-                }
+                    // Purchase Cosmetic
+                    const updatedItems = items.map(i => i.id === item.id ? { ...i, purchased: true } : i);
+                    setItems(updatedItems);
 
-                // Auto-equip
-                if (item.type === 'theme') setTheme(item.value);
-                if (item.type === 'avatar') setAvatar(item.value);
-                if (item.type === 'confetti') setConfetti(item.value);
-                toast.success(`Purchased ${item.name}!`);
+                    // Save Purchased State
+                    const purchasedIds = updatedItems.filter(i => i.purchased).map(i => i.id);
+                    if (chrome?.storage?.local) {
+                        chrome.storage.local.set({ purchasedItems: purchasedIds });
+                    } else {
+                        localStorage.setItem('purchasedItems', JSON.stringify(purchasedIds));
+                    }
+
+                    // Auto-equip
+                    if (item.type === 'theme') setTheme(item.value);
+                    if (item.type === 'avatar') setAvatar(item.value);
+                    if (item.type === 'confetti') setConfetti(item.value);
+                    toast.success(`Purchased ${item.name}!`);
+                }
             }
         } else {
             if (soundEnabled) playSound.error();
@@ -125,7 +155,35 @@ const Shop = ({ profile, updateProfile, setTheme, setAvatar, setConfetti, soundE
             alert("Scroll of Reschedule usage: Go to Quests -> Edit Quest -> Use Scroll to change date!");
             // Actual implementation would be in Quests component or a global modal context
         } else if (item.id === 'mystery_key') {
-            toast("This key hums with potential... but finds no lock yet.");
+            if (confirm("The key vibrates violently... Do you trigger the Ancient Portal? (Starts Special Raid)")) {
+                consumed = true;
+
+                // Create Special Raid
+                const specialRaid = {
+                    id: Date.now(),
+                    name: "The Golden Dragon",
+                    bossId: "dragon_gold", // Need to handle this visual in RaidBoss
+                    maxHp: 100, // Epik
+                    currentHp: 100,
+                    tasks: [],
+                    rewards: { gold: 1000, xp: 500 },
+                    isSpecial: true
+                };
+
+                setActiveRaid(specialRaid);
+                toast.custom((t) => (
+                    <div className="bg-[#1a0f0f] border-2 border-[#d4af37] text-[#ffd700] p-4 rounded-lg flex items-center gap-4 animate-bounce-slow" onClick={() => setActiveTab('raids')}>
+                        <div className="text-4xl">🐲</div>
+                        <div>
+                            <div className="font-bold text-lg uppercase tracking-widest">GATE OPENED!</div>
+                            <div className="text-yellow-200 text-sm">The Golden Dragon awaits...</div>
+                        </div>
+                    </div>
+                ), { duration: 5000 });
+
+                if (soundEnabled) playSound.bossDie(); // Epic sound
+                setActiveTab('raids');
+            }
         }
 
         if (consumed) {
@@ -134,6 +192,13 @@ const Shop = ({ profile, updateProfile, setTheme, setAvatar, setConfetti, soundE
             ).filter(i => i.count > 0);
             updateInventory(newInventory);
         }
+    };
+
+    const isEquipped = (item) => {
+        if (item.type === 'theme') return currentTheme === item.value;
+        if (item.type === 'avatar') return currentAvatar === item.value;
+        if (item.type === 'confetti') return currentConfetti === item.value;
+        return false;
     };
 
     return (
@@ -155,48 +220,60 @@ const Shop = ({ profile, updateProfile, setTheme, setAvatar, setConfetti, soundE
             {/* Shop Tabs */}
             <div className="flex gap-2 mb-4 bg-[#0f0a0a] p-1 rounded-lg border border-[#333]">
                 <button
-                    onClick={() => setActiveTab('merchant')}
-                    className={`flex-1 py-2 text-sm font-bold rounded flex items-center justify-center gap-2 transition-all ${activeTab === 'merchant' ? 'bg-[#5c4033] text-[#e0d0b0] border border-[#d4af37] shadow-[0_0_10px_rgba(212,175,55,0.2)]' : 'text-gray-500 hover:text-[#d4af37] hover:bg-[#1a1111]'}`}
+                    onClick={() => setShopTab('merchant')}
+                    className={`flex-1 py-2 text-sm font-bold rounded flex items-center justify-center gap-2 transition-all ${shopTab === 'merchant' ? 'bg-[#5c4033] text-[#e0d0b0] border border-[#d4af37] shadow-[0_0_10px_rgba(212,175,55,0.2)]' : 'text-gray-500 hover:text-[#d4af37] hover:bg-[#1a1111]'}`}
                 >
                     ⚖️ Wares
                 </button>
                 <button
-                    onClick={() => setActiveTab('inventory')}
-                    className={`flex-1 py-2 text-sm font-bold rounded flex items-center justify-center gap-2 transition-all ${activeTab === 'inventory' ? 'bg-[#1e293b] text-blue-200 border border-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.2)]' : 'text-gray-500 hover:text-blue-300 hover:bg-[#0f172a]'}`}
+                    onClick={() => setShopTab('inventory')}
+                    className={`flex-1 py-2 text-sm font-bold rounded flex items-center justify-center gap-2 transition-all ${shopTab === 'inventory' ? 'bg-[#1e293b] text-blue-200 border border-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.2)]' : 'text-gray-500 hover:text-blue-300 hover:bg-[#0f172a]'}`}
                 >
                     🎒 Backpack ({inventory ? inventory.length : 0})
                 </button>
             </div>
 
-            {activeTab === 'merchant' ? (
+            {shopTab === 'merchant' ? (
                 <div className="grid grid-cols-2 gap-3 overflow-y-auto pr-1">
-                    {items.map(item => (
-                        <div key={item.id} className="bg-[#1a0f0f] border-2 border-[#5c4033] rounded-sm p-3 flex flex-col items-center text-center hover:border-[#d4af37] transition-all relative group shadow-[0_4px_6px_rgba(0,0,0,0.3)]">
-                            {/* Card Texture */}
-                            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/dark-wood.png')] opacity-10 pointer-events-none"></div>
+                    {items.map(item => {
+                        const equipped = isEquipped(item);
+                        return (
+                            <div key={item.id} className={`bg-[#1a0f0f] border-2 rounded-sm p-3 flex flex-col items-center text-center transition-all relative group shadow-[0_4px_6px_rgba(0,0,0,0.3)] ${equipped ? 'border-green-500 shadow-[0_0_15px_rgba(34,197,94,0.3)]' : 'border-[#5c4033] hover:border-[#d4af37]'}`}>
+                                {/* Card Texture */}
+                                <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/dark-wood.png')] opacity-10 pointer-events-none"></div>
 
-                            <div className="relative z-10 text-3xl mb-2 filter drop-shadow-[0_2px_2px_rgba(0,0,0,0.5)] group-hover:scale-110 transition-transform">
-                                {item.type === 'avatar' ? item.value : (item.type === 'theme' ? '🎨' : '✨')}
-                            </div>
-                            <div className="relative z-10 font-bold text-[#e0c090] text-sm font-serif">{item.name}</div>
-                            <div className="relative z-10 text-[10px] text-[#8a6d1f] mb-3 uppercase tracking-wider">{item.type}</div>
-
-                            <button
-                                onClick={() => buyItem(item)}
-                                className={`relative z-10 w-full text-xs py-1.5 rounded font-bold uppercase tracking-wide transition-colors ${item.purchased
-                                    ? 'bg-[#2a282a] border border-[#444] text-gray-500 cursor-default'
-                                    : 'bg-[#0f2a0f] border border-[#2e8b57] text-[#50c878] hover:bg-[#1a3a1a] hover:text-white shadow-[0_0_5px_rgba(46,139,87,0.3)]'
-                                    }`}
-                            >
-                                {item.purchased ? 'Owned' : (
-                                    <span>
-                                        {item.price !== getPrice(item.price) && <span className="line-through opacity-50 mr-1">{item.price}</span>}
-                                        {getPrice(item.price)} G
-                                    </span>
+                                {equipped && (
+                                    <div className="absolute top-1 right-1 bg-green-900/80 text-green-300 text-[10px] px-1.5 rounded border border-green-700 font-bold uppercase tracking-wider z-20">
+                                        Equipped
+                                    </div>
                                 )}
-                            </button>
-                        </div>
-                    ))}
+
+                                <div className="relative z-10 text-3xl mb-2 filter drop-shadow-[0_2px_2px_rgba(0,0,0,0.5)] group-hover:scale-110 transition-transform">
+                                    {item.type === 'avatar' ? item.value : (item.type === 'theme' ? '🎨' : '✨')}
+                                </div>
+                                <div className="relative z-10 font-bold text-[#e0c090] text-sm font-serif">{item.name}</div>
+                                <div className="relative z-10 text-[10px] text-[#8a6d1f] mb-3 uppercase tracking-wider">{item.type}</div>
+
+                                <button
+                                    onClick={() => buyItem(item)}
+                                    disabled={equipped}
+                                    className={`relative z-10 w-full text-xs py-1.5 rounded font-bold uppercase tracking-wide transition-colors ${equipped
+                                        ? 'bg-green-900 border border-green-600 text-green-200 cursor-default opacity-50'
+                                        : (item.purchased && item.type !== 'consumable')
+                                            ? 'bg-[#2a282a] border border-[#d4af37] text-[#d4af37] hover:bg-[#3a383a] hover:text-white cursor-pointer active:scale-95'
+                                            : 'bg-[#0f2a0f] border border-[#2e8b57] text-[#50c878] hover:bg-[#1a3a1a] hover:text-white shadow-[0_0_5px_rgba(46,139,87,0.3)] active:scale-95'
+                                        }`}
+                                >
+                                    {equipped ? 'Active' : ((item.purchased && item.type !== 'consumable') ? 'Equip' : (
+                                        <span>
+                                            {item.price !== getPrice(item.price) && <span className="line-through opacity-50 mr-1">{item.price}</span>}
+                                            {getPrice(item.price)} G
+                                        </span>
+                                    ))}
+                                </button>
+                            </div>
+                        );
+                    })}
                 </div>
             ) : (
                 <div className="flex-1 overflow-y-auto">

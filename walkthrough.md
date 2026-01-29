@@ -40,13 +40,19 @@ Track your long-term mastery. Unlock medals by hitting milestones like:
 - **Scholar**: Write 20 Notes.
 Achievements trigger a **Toast Notification** and **Sound Effect** when unlocked.
 
-## 7. System Menu (Settings) ⚙️
+## 7. Epic Raids (Boss Battles) 🐉
+For massive, long-term projects (e.g., "Write Thesis", "Refactor Backend").
+- **Summon Boss**: Choose from *Code Dragon*, *Deadline Demon*, or *Void Construct*.
+- **Battle**: Add subtasks to the Raid Log. Completing them deals damage to the boss.
+- **Victory**: Reduce Boss HP to 0 for **Legendary Loot** (+5000 Gold, +10000 XP).
+
+## 8. System Menu (Settings) ⚙️
 Manage your world state.
 - **World State**: Export/Import your save data (JSON).
 - **Cataclysm Protocol**: Hard reset your progress.
 
 
-## 8. Quest Board ⚔️
+## 9. Quest Board ⚔️
 Organized into three tabs:
 - **Active**: Current quests that are not expired.
 - **Completed**: History of your victories.

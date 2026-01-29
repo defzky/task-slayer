@@ -55,7 +55,7 @@ export const playSound = {
         setTimeout(() => playTone(80, 'sawtooth', 0.1, 0.1), 50);
     },
 
-    bossDefeat: () => {
+    bossDie: () => {
         // Epic Victory - Slower Arpeggio with harmony
         const now = audioCtx.currentTime;
         [220, 330, 440, 554, 659, 880, 1109].forEach((freq, i) => {
