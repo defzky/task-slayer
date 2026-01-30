@@ -407,6 +407,27 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled, i
             totalGoldEarned: (currentStats.totalGoldEarned || 0) + earnedGold
         };
 
+        // --- HISTORY UPDATE ---
+        const today = new Date().toDateString();
+        const history = profile.history || [];
+        const todayEntry = history.find(h => h.date === today) || { date: today, xp: 0, gold: 0, quests: 0, focusMinutes: 0 };
+
+        const updatedHistoryEntry = {
+            ...todayEntry,
+            xp: (todayEntry.xp || 0) + earnedXp,
+            gold: (todayEntry.gold || 0) + earnedGold,
+            quests: (todayEntry.quests || 0) + 1
+        };
+
+        let newHistory;
+        const entryIndex = history.findIndex(h => h.date === today);
+        if (entryIndex >= 0) {
+            newHistory = [...history];
+            newHistory[entryIndex] = updatedHistoryEntry;
+        } else {
+            newHistory = [...history, updatedHistoryEntry];
+        }
+
         const updatedProfile = {
             level: newLevel,
             xp: newXp,
@@ -416,7 +437,8 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled, i
             skillPoints: newSkillPoints,
             unlockedSkills: profile.unlockedSkills || [],
             stats: newStats,
-            unlockedAchievements: profile.unlockedAchievements || []
+            unlockedAchievements: profile.unlockedAchievements || [],
+            history: newHistory
         };
 
         // Update Quest Status

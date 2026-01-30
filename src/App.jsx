@@ -9,6 +9,10 @@ import Achievements, { ACHIEVEMENTS } from './components/Achievements';
 import RaidBoss from './components/RaidBoss';
 import ClassSelector from './components/ClassSelector';
 import Settings from './components/Settings';
+import Analytics from './components/Analytics';
+import TopBar from './components/TopBar';
+import FocusTimer from './components/FocusTimer';
+import { Sword, Scroll, ShoppingBag, Brain, BarChart2, Skull, Snowflake, Grid } from 'lucide-react';
 import { playSound } from './utils/soundfx';
 
 function App() {
@@ -31,6 +35,7 @@ function App() {
   const [inventory, setInventory] = useState([]); // [{id, count, name, type, description}]
   const [activeRaid, setActiveRaid] = useState(null); // { id, name, bossId, maxHp, currentHp, tasks: [] }
   const [showClassSelector, setShowClassSelector] = useState(false);
+  const [showFocusMode, setShowFocusMode] = useState(false);
 
   // Load Profile & Theme on mount
   useEffect(() => {
@@ -45,7 +50,8 @@ function App() {
         skillPoints: 0,
         unlockedSkills: [],
         stats: { questsCompleted: 0, bossesDefeated: 0, totalGoldEarned: 0, notesCreated: 0, itemsBought: 0 },
-        unlockedAchievements: []
+        unlockedAchievements: [],
+        history: [] // [{ date, xp, gold, quests, focusMinutes }]
       };
 
       // 2. Check Daily Login Reward
@@ -305,6 +311,10 @@ function App() {
       newStreak = 1; // First time
     }
 
+    // Update History for Today
+    let history = currentProfile.history || [];
+    let todayEntry = history.find(h => h.date === today) || { date: today, xp: 0, gold: 0, quests: 0, focusMinutes: 0 };
+
     // Calculate Rewards
     const baseGold = 50;
     const baseXp = 100;
@@ -312,6 +322,22 @@ function App() {
 
     const rewardGold = Math.floor(baseGold * multiplier);
     const rewardXp = Math.floor(baseXp * multiplier);
+
+    // Update Today's History
+    const entryIndex = history.findIndex(h => h.date === today);
+    const updatedHistoryEntry = {
+      ...todayEntry,
+      xp: (todayEntry.xp || 0) + rewardXp,
+      gold: (todayEntry.gold || 0) + rewardGold
+    };
+
+    let newHistory;
+    if (entryIndex >= 0) {
+      newHistory = [...history];
+      newHistory[entryIndex] = updatedHistoryEntry;
+    } else {
+      newHistory = [...history, updatedHistoryEntry];
+    }
 
     // Toast Notification
     setTimeout(() => {
@@ -332,169 +358,169 @@ function App() {
       lastLoginDate: today,
       streak: newStreak,
       gold: (currentProfile.gold || 0) + rewardGold,
-      xp: (currentProfile.xp || 0) + rewardXp
+      xp: (currentProfile.xp || 0) + rewardXp,
+      history: newHistory
     };
   };
 
+  // Sidebar Icon Helper
+  const SidebarBtn = ({ icon, active, onClick, color, label }) => (
+    <button
+      onClick={onClick}
+      className={`group relative w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300 ${active
+          ? `bg-[#2a282a] text-white shadow-[0_0_15px_rgba(255,255,255,0.1)] border border-${color.split('-')[1]}-500`
+          : 'text-gray-500 hover:text-white hover:bg-[#1a1a1a]'
+        }`}
+      title={label}
+    >
+      <div className={`transition-transform duration-300 group-hover:scale-110 ${active ? color : ''}`}>
+        {icon}
+      </div>
+
+      {/* Tooltip */}
+      <div className={`absolute left-14 bg-[#151515] text-white text-xs font-bold py-1.5 px-3 rounded border border-[#333] opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-xl flex items-center gap-2`}>
+        {label}
+      </div>
+
+      {/* Active Indicator */}
+      {active && (
+        <div className={`absolute -left-1 top-1/2 -translate-y-1/2 w-1 h-8 rounded-r-full bg-current ${color}`} />
+      )}
+    </button>
+  );
+
   return (
-    <div className={`w-full h-screen flex overflow-hidden transition-colors duration-300 bg-[#0f0f10] ${getThemeColors()}`}>
+    <div className={`w-full h-screen flex overflow-hidden bg-[#0a0a0a] font-sans selection:bg-[#d4af37] selection:text-black`}>
       <Toaster position="bottom-right" theme="dark" richColors />
 
-      {/* Class Selector Modal */}
-      {showClassSelector && (
-        <ClassSelector
-          currentClass={profile.userClass}
-          onSelect={handleSelectClass}
-        />
-      )}
+      {/* Overlays */}
+      {showClassSelector && <ClassSelector currentClass={profile.userClass} onSelect={handleSelectClass} />}
+      {showFocusMode && <FocusTimer profile={profile} updateProfile={handleUpdateProfile} onClose={() => setShowFocusMode(false)} />}
 
-      {/* Sidebar (Runestone Menu) */}
-      <nav className={`w-20 flex flex-col items-center py-6 shrink-0 ${getSideNavColors()} border-r-2 shadow-[4px_0_24px_rgba(0,0,0,0.5)] z-20 relative bg-[url('https://www.transparenttextures.com/patterns/dark-matter.png')]`}>
-        {/* App Logo / Icon */}
-        <div className="mb-2 text-2xl animate-pulse filter drop-shadow-[0_0_8px_rgba(212,175,55,0.6)]">
+      {/* 1. Slim Sidebar (Navigation) */}
+      <nav className="w-20 flex flex-col items-center py-6 shrink-0 bg-[#0f0f10] border-r border-[#222] z-20">
+        {/* Logo */}
+        <div className="mb-8 text-3xl filter drop-shadow-[0_0_10px_rgba(255,215,0,0.4)] hover:scale-110 transition-transform cursor-pointer" onClick={() => setActiveTab('quests')}>
           🗡️
         </div>
 
-        {/* Streak Counter */}
-        {profile.streak > 0 && (
-          <div className="mb-6 flex flex-col items-center group cursor-help" title={`Daily Streak: ${profile.streak} Days`}>
-            <span className="text-xl animate-fire">🔥</span>
-            <span className="text-[10px] font-bold text-orange-500 font-mono">{profile.streak}</span>
-          </div>
-        )}
-
-        <div className="flex flex-col gap-6 w-full px-2">
-          <button
+        {/* Navigation Items */}
+        <div className="flex flex-col gap-4 w-full px-2 items-center">
+          <SidebarBtn
+            icon={<Sword size={22} />}
+            label="Adventure"
+            active={activeTab === 'quests'}
             onClick={() => setActiveTab('quests')}
-            className={`group relative w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300 ${activeTab === 'quests' ? 'bg-gradient-to-br from-[#d4af37] to-[#8a6d1f] text-black shadow-[0_0_15px_rgba(212,175,55,0.5)] scale-110' : 'bg-[#2a282a] border-2 border-[#444] text-gray-400 hover:border-[#d4af37] hover:text-[#d4af37]'}`}
-            title="Adventure (Quests)"
-          >
-            <span className="text-xl group-hover:scale-110 transition-transform">⚔️</span>
-            {/* Tooltip */}
-            <div className="absolute left-14 bg-[#1a0f0f] text-[#d4af37] text-xs font-bold py-1 px-3 rounded border border-[#d4af37] opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-xl">
-              Adventure Board
-            </div>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('notes')}
-            className={`group relative w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300 ${activeTab === 'notes' ? 'bg-gradient-to-br from-[#d4af37] to-[#8a6d1f] text-black shadow-[0_0_15px_rgba(212,175,55,0.5)] scale-110' : 'bg-[#2a282a] border-2 border-[#444] text-gray-400 hover:border-[#d4af37] hover:text-[#d4af37]'}`}
-            title="Grimoire (Notes)"
-          >
-            <span className="text-xl group-hover:scale-110 transition-transform">📜</span>
-            <div className="absolute left-14 bg-[#1a0f0f] text-[#d4af37] text-xs font-bold py-1 px-3 rounded border border-[#d4af37] opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-xl">
-              Nalan's Grimoire
-            </div>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('freezer')}
-            className={`group relative w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300 ${activeTab === 'freezer' ? 'bg-gradient-to-br from-cyan-400 to-blue-600 text-black shadow-[0_0_15px_rgba(0,255,255,0.5)] scale-110' : 'bg-[#2a282a] border-2 border-[#444] text-gray-400 hover:border-cyan-400 hover:text-cyan-400'}`}
-            title="Stasis (Freezer)"
-          >
-            <span className="text-xl group-hover:scale-110 transition-transform">❄️</span>
-            <div className="absolute left-14 bg-[#0f172a] text-cyan-300 text-xs font-bold py-1 px-3 rounded border border-cyan-500 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-xl">
-              Stasis Chamber
-            </div>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('shop')}
-            className={`group relative w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300 ${activeTab === 'shop' ? 'bg-gradient-to-br from-[#d4af37] to-[#8a6d1f] text-black shadow-[0_0_15px_rgba(212,175,55,0.5)] scale-110' : 'bg-[#2a282a] border-2 border-[#444] text-gray-400 hover:border-[#d4af37] hover:text-[#d4af37]'}`}
-            title="Goblin Shop"
-          >
-            <span className="text-xl group-hover:scale-110 transition-transform">🛒</span>
-            <div className="absolute left-14 bg-[#1a0f0f] text-[#d4af37] text-xs font-bold py-1 px-3 rounded border border-[#d4af37] opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-xl">
-              Goblin Market
-            </div>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('skills')}
-            className={`group relative w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300 ${activeTab === 'skills' ? 'bg-gradient-to-br from-purple-500 to-indigo-600 text-white shadow-[0_0_15px_rgba(139,92,246,0.5)] scale-110' : 'bg-[#2a282a] border-2 border-[#444] text-gray-400 hover:border-purple-500 hover:text-purple-500'}`}
-            title="Skill Tree"
-          >
-            <span className="text-xl group-hover:scale-110 transition-transform">🌌</span>
-            <div className="absolute left-14 bg-[#0f0f1a] text-[#00f7ff] text-xs font-bold py-1 px-3 rounded border border-blue-500 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-xl">
-              Talents
-            </div>
-          </button>
-          <button
-            onClick={() => setActiveTab('achievements')}
-            className={`group relative w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300 ${activeTab === 'achievements' ? 'bg-gradient-to-br from-[#d4af37] to-yellow-600 text-black shadow-[0_0_15px_rgba(255,215,0,0.5)] scale-110' : 'bg-[#2a282a] border-2 border-[#444] text-gray-400 hover:border-yellow-500 hover:text-yellow-500'}`}
-            title="Hall of Trophies"
-          >
-            <span className="text-xl group-hover:scale-110 transition-transform">🏆</span>
-            <div className="absolute left-14 bg-[#1a0f0f] text-[#d4af37] text-xs font-bold py-1 px-3 rounded border border-[#d4af37] opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-xl">
-              Trophies
-            </div>
-          </button>
-        </div>
-
-        <div className="mt-auto flex flex-col items-center gap-4 w-full px-2">
-          <button
+            color="text-yellow-500"
+          />
+          <SidebarBtn
+            icon={<Skull size={22} />}
+            label="Raids"
+            active={activeTab === 'raids'}
             onClick={() => setActiveTab('raids')}
-            className={`group relative w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300 ${activeTab === 'raids' ? 'bg-gradient-to-br from-red-600 to-red-900 text-white shadow-[0_0_15px_rgba(220,38,38,0.5)] scale-110' : 'bg-[#2a282a] border-2 border-[#444] text-gray-400 hover:border-red-500 hover:text-red-500'}`}
-            title="Epic Raids"
-          >
-            <span className="text-xl group-hover:scale-110 transition-transform">🐲</span>
-            <div className="absolute left-14 bg-[#1a0f0f] text-red-500 text-xs font-bold py-1 px-3 rounded border border-red-500 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-xl">
-              Raids
-            </div>
-          </button>
+            color="text-red-500"
+          />
+          <SidebarBtn
+            icon={<ShoppingBag size={22} />}
+            label="Shop"
+            active={activeTab === 'shop'}
+            onClick={() => setActiveTab('shop')}
+            color="text-green-500"
+          />
 
-          <button
-            onClick={() => setActiveTab('settings')}
-            className={`group relative w-10 h-10 rounded-full flex items-center justify-center transition-all ${activeTab === 'settings' ? 'bg-white/20 text-white' : 'hover:bg-white/10 text-gray-500 hover:text-white'}`}
-          >
-            <span className="text-lg">⚙️</span>
-          </button>
-          <button
-            onClick={handleToggleSound}
-            className="group relative w-10 h-10 rounded-full flex items-center justify-center hover:bg-white/10 text-gray-500 hover:text-white transition-all"
-          >
-            <span className="text-lg">{soundEnabled ? '🔊' : '🔕'}</span>
-          </button>
+          <div className="w-8 h-px bg-[#222] my-2" />
+
+          <SidebarBtn
+            icon={<Scroll size={22} />}
+            label="Grimoire"
+            active={activeTab === 'notes'}
+            onClick={() => setActiveTab('notes')}
+            color="text-purple-400"
+          />
+          <SidebarBtn
+            icon={<Brain size={22} />}
+            label="Focus Mode"
+            active={false}
+            onClick={() => setShowFocusMode(true)}
+            color="text-blue-400"
+          />
+          <SidebarBtn
+            icon={<Snowflake size={22} />}
+            label="Stasis"
+            active={activeTab === 'freezer'}
+            onClick={() => setActiveTab('freezer')}
+            color="text-cyan-400"
+          />
+
+          <div className="w-8 h-px bg-[#222] my-2" />
+
+          <SidebarBtn
+            icon={<BarChart2 size={22} />}
+            label="Analytics"
+            active={activeTab === 'analytics'}
+            onClick={() => setActiveTab('analytics')}
+            color="text-teal-400"
+          />
         </div>
       </nav>
 
-      {/* Main Content Area */}
-      <main className="flex-1 p-4 relative">
-        {activeTab === 'notes' && <Notes profile={profile} updateProfile={handleUpdateProfile} />}
-        {activeTab === 'freezer' && <Freezer profile={profile} updateProfile={handleUpdateProfile} />}
-        {activeTab === 'quests' && <Quests
+      {/* 2. Main Content Wrapper */}
+      <div className="flex-1 flex flex-col h-full relative overflow-hidden bg-[#050505]">
+        {/* Top Bar (Status) */}
+        <TopBar
           profile={profile}
-          updateProfile={handleUpdateProfile}
           avatar={avatar}
-          confettiStyle={confettiStyle}
-          soundEnabled={soundEnabled}
-          inventory={inventory}
-          updateInventory={handleUpdateInventory}
-        />}
-        {activeTab === 'shop' && <Shop
-          profile={profile}
-          updateProfile={handleUpdateProfile}
-          setTheme={handleSetTheme}
-          setAvatar={handleSetAvatar}
-          setConfetti={handleSetConfetti}
-          soundEnabled={soundEnabled}
-          inventory={inventory}
-          updateInventory={handleUpdateInventory}
-          setActiveRaid={handleUpdateRaid}
+          activeTab={activeTab}
           setActiveTab={setActiveTab}
-          currentTheme={theme}
-          currentAvatar={avatar}
-          currentConfetti={confettiStyle}
-        />}
-        {activeTab === 'skills' && <SkillTree
-          profile={profile}
-          updateProfile={handleUpdateProfile}
           soundEnabled={soundEnabled}
-        />}
-        {activeTab === 'raids' && <RaidBoss profile={profile} updateProfile={handleUpdateProfile} activeRaid={activeRaid} setActiveRaid={handleUpdateRaid} />}
-        {activeTab === 'achievements' && <Achievements profile={profile} />}
-        {activeTab === 'settings' && <Settings updateProfile={handleUpdateProfile} />}
-      </main>
+          toggleSound={handleToggleSound}
+          setShowClassSelector={setShowClassSelector}
+        />
+
+        {/* Content Area */}
+        <main className={`flex-1 overflow-y-auto p-6 relative ${getThemeColors()}`}>
+          {/* Background Texture Overlay */}
+          <div className="absolute inset-0 opacity-5 pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] mix-blend-overlay"></div>
+
+          <div className="max-w-7xl mx-auto h-full">
+            {activeTab === 'notes' && <Notes profile={profile} updateProfile={handleUpdateProfile} />}
+            {activeTab === 'freezer' && <Freezer profile={profile} updateProfile={handleUpdateProfile} />}
+            {activeTab === 'quests' && <Quests
+              profile={profile}
+              updateProfile={handleUpdateProfile}
+              avatar={avatar}
+              confettiStyle={confettiStyle}
+              soundEnabled={soundEnabled}
+              inventory={inventory}
+              updateInventory={handleUpdateInventory}
+            />}
+            {activeTab === 'shop' && <Shop
+              profile={profile}
+              updateProfile={handleUpdateProfile}
+              setTheme={handleSetTheme}
+              setAvatar={handleSetAvatar}
+              setConfetti={handleSetConfetti}
+              soundEnabled={soundEnabled}
+              inventory={inventory}
+              updateInventory={handleUpdateInventory}
+              setActiveRaid={handleUpdateRaid}
+              setActiveTab={setActiveTab}
+              currentTheme={theme}
+              currentAvatar={avatar}
+              currentConfetti={confettiStyle}
+            />}
+            {activeTab === 'skills' && <SkillTree
+              profile={profile}
+              updateProfile={handleUpdateProfile}
+              soundEnabled={soundEnabled}
+            />}
+            {activeTab === 'raids' && <RaidBoss profile={profile} updateProfile={handleUpdateProfile} activeRaid={activeRaid} setActiveRaid={handleUpdateRaid} />}
+            {activeTab === 'achievements' && <Achievements profile={profile} />}
+            {activeTab === 'analytics' && <Analytics profile={profile} />}
+            {activeTab === 'settings' && <Settings updateProfile={handleUpdateProfile} />}
+          </div>
+        </main>
+      </div>
     </div>
   );
 }
