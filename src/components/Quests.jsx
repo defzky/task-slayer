@@ -18,6 +18,7 @@ import {
     useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import QuickDateSelector from './QuickDateSelector';
 
 // Sortable Item Component
 const SortableQuestItem = ({ quest, children }) => {
@@ -531,7 +532,6 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled, i
             </div>
 
             {/* Add New Quest */}
-            {/* Add New Quest */}
             {editingQuest ? (
                 <form onSubmit={saveEditedQuest} className="relative mb-4 bg-[#2a282a] p-3 rounded-lg border border-[#d4af37] animate-in fade-in slide-in-from-top-2">
                     <div className="flex justify-between items-center mb-2">
@@ -547,11 +547,10 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled, i
                         />
                         <div className="flex items-center gap-2">
                             <span className="text-xs text-gray-400">Deadline:</span>
-                            <input
-                                type="datetime-local"
-                                value={editingQuest.deadline ? new Date(editingQuest.deadline).toISOString().slice(0, 16) : ''}
-                                onChange={(e) => setEditingQuest({ ...editingQuest, deadline: e.target.value ? new Date(e.target.value).toISOString() : null })}
-                                className="bg-[#1e1e1e] border border-[#444] text-[#e0e0e0] rounded p-1 text-sm focus:border-[#d4af37] outline-none"
+                            <QuickDateSelector
+                                value={editingQuest.deadline}
+                                onChange={(val) => setEditingQuest({ ...editingQuest, deadline: val })}
+                                className="flex-1"
                             />
                         </div>
                         <button type="submit" className="bg-[#d4af37] text-black font-bold py-1 rounded hover:opacity-90 mt-1">Save Changes</button>
@@ -581,12 +580,10 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled, i
                             onChange={(e) => setNewQuestTitle(e.target.value)}
                             className={`flex-1 bg-[#2a282a] border ${isBossMode ? 'border-red-500 text-red-100' : 'border-[#444] text-[#e0e0e0]'} text-base rounded-lg py-3 px-4 focus:outline-none focus:border-[#d4af37] placeholder-gray-600`}
                         />
-                        <input
-                            type="datetime-local"
+                        <QuickDateSelector
                             value={newQuestDeadline}
-                            onChange={(e) => setNewQuestDeadline(e.target.value)}
-                            className={`w-12 bg-[#2a282a] border ${isBossMode ? 'border-red-500 text-red-100' : 'border-[#444] text-[#e0e0e0]'} rounded-lg px-2 focus:outline-none focus:border-[#d4af37] text-xs text-transparent focus:text-white focus:w-auto transition-all duration-300`}
-                            title="Set Deadline (Optional)"
+                            onChange={setNewQuestDeadline}
+                            className="w-auto"
                         />
                         <button
                             type="submit"

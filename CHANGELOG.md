@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.8.1] - 2026-01-30
+### Added
+- **Quick Date Selector**: New UI for setting quest deadlines with presets (Today Eve, Tomorrow Night, Next Week).
+
+### Changed
+- **Quests UI**: Replaced standard date input with the new custom selector for better UX.
+- **Quest Date Logic**: Changed default "Tomorrow Morning" preset to "Today Eve" based on user feedback.
+
 ## [1.8.0] - 2026-01-29
 ### Added
 - **Daily Login System**: Added streak tracking and daily rewards (Gold + XP) with visual notifications.
