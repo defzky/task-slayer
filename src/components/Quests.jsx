@@ -18,7 +18,10 @@ import {
     useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+
 import QuickDateSelector from './QuickDateSelector';
+import QuestItem from './QuestItem';
+import BossCard from './BossCard';
 
 // Sortable Item Component
 const SortableQuestItem = ({ quest, children }) => {
@@ -42,13 +45,12 @@ const SortableQuestItem = ({ quest, children }) => {
     );
 };
 
-const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled, inventory, updateInventory }) => {
+const Quests = ({ profile, updateProfile, onQuestComplete, avatar, confettiStyle, soundEnabled, inventory, updateInventory }) => {
     // profile is now a prop
     const [quests, setQuests] = useState([]);
     const [newQuestTitle, setNewQuestTitle] = useState('');
     const [newQuestDeadline, setNewQuestDeadline] = useState('');
     const [isBossMode, setIsBossMode] = useState(false);
-    const [streak, setStreak] = useState(0);
     const [questTab, setQuestTab] = useState('active'); // 'active' | 'completed' | 'failed'
     const [editingQuest, setEditingQuest] = useState(null); // { id, title, deadline } for modal
 
@@ -65,78 +67,30 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled, i
 
     // Load data on mount
     useEffect(() => {
-        const loadData = (result) => {
-            // Profile is handled by parent App.jsx
+        const loadQuests = (result) => {
             if (result.quests) setQuests(result.quests);
-
-            // Daily Streak Logic
-            const today = new Date().toDateString();
-            const lastLogin = result.lastLoginDate;
-            let currentStreak = result.dailyStreak || 0;
-            let streakBonus = false;
-
-            if (lastLogin !== today) {
-                const yesterday = new Date();
-                yesterday.setDate(yesterday.getDate() - 1);
-
-                if (lastLogin === yesterday.toDateString()) {
-                    currentStreak += 1;
-                    streakBonus = true; // Flag to show user they kept the streak
-                } else {
-                    currentStreak = 1; // Reset or Start new
-                }
-
-                // Save new streak data
-                const updates = { lastLoginDate: today, dailyStreak: currentStreak };
-                if (chrome?.storage?.sync) {
-                    chrome.storage.sync.set(updates);
-                } else if (chrome?.storage?.local) {
-                    chrome.storage.local.set(updates);
-                } else {
-                    localStorage.setItem('lastLoginDate', today);
-                    localStorage.setItem('dailyStreak', currentStreak);
-                }
-
-                // Bonus XP for logging in (if maintained streak)
-                if (streakBonus) {
-                    // We'll handle XP update via existing profile state update mechanism if needed, 
-                    // but for simplicity let's just show it in UI for now
-                    console.log("Streak kept! +10 XP potentially");
-                }
-            }
-            setStreak(currentStreak);
         };
 
         if (chrome?.storage?.sync) {
-            chrome.storage.sync.get(['quests', 'dailyStreak', 'lastLoginDate'], (syncRes) => {
-                if (Object.keys(syncRes).length > 0) {
-                    loadData(syncRes);
+            chrome.storage.sync.get(['quests'], (syncRes) => {
+                if (syncRes.quests) {
+                    loadQuests(syncRes);
                 } else {
-                    // Try Local (Migration)
-                    chrome.storage.local.get(['quests', 'dailyStreak', 'lastLoginDate'], (localRes) => {
-                        if (Object.keys(localRes).length > 0) {
-                            loadData(localRes);
-                            chrome.storage.sync.set(localRes); // Migrate
-                        } else {
-                            loadData({});
+                    chrome.storage.local.get(['quests'], (localRes) => {
+                        if (localRes.quests) {
+                            loadQuests(localRes);
+                            // Optional: Migrate quests to sync if needed, but App.jsx handles main profile
                         }
                     });
                 }
             });
         } else if (chrome?.storage?.local) {
-            chrome.storage.local.get(['rpgProfile', 'quests', 'dailyStreak', 'lastLoginDate'], loadData);
+            chrome.storage.local.get(['quests'], loadQuests);
         } else {
             // Mock for local dev
-            const savedProfile = localStorage.getItem('rpgProfile');
             const savedQuests = localStorage.getItem('quests');
-            const dailyStreak = localStorage.getItem('dailyStreak') ? parseInt(localStorage.getItem('dailyStreak')) : 0;
-            const lastLoginDate = localStorage.getItem('lastLoginDate');
-
-            loadData({
-                rpgProfile: savedProfile ? JSON.parse(savedProfile) : null,
-                quests: savedQuests ? JSON.parse(savedQuests) : null,
-                dailyStreak,
-                lastLoginDate
+            loadQuests({
+                quests: savedQuests ? JSON.parse(savedQuests) : null
             });
         }
     }, []);
@@ -267,10 +221,9 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled, i
 
         // Trigger Sound & Visuals
         if (isBossKill) {
-            if (soundEnabled) playSound.bossDefeat(); // Epic sound for Boss Kill
+            if (soundEnabled) playSound.bossDie(); // Epic sound for Boss Kill
             confetti({ particleCount: 500, spread: 200, colors: ['#FFD700', '#FF0000'] });
         } else {
-            playSound.coin();
             // ... (Existing confetti logic) ...
             let confettiColors = ['#d4af37', '#e0e0e0', '#ff0000'];
             let confettiShapes = ['circle', 'square'];
@@ -291,7 +244,7 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled, i
             });
         }
 
-        // --- ITEM DROP LOGIC ---
+        // --- ITEM DROP LOGIC (Local for now, could be moved later) ---
         const dropChance = isBossMode ? 0.6 : 0.15; // 60% for Boss, 15% for Normal
         if (Math.random() < dropChance) {
             // Drop Table
@@ -335,111 +288,17 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled, i
             }, 1000);
         }
 
-        // Calculate Bonuses from Class
-        let xpBonusMult = 1;
-        let goldBonusMult = 1;
-        const userClass = profile.userClass || 'Novice';
+        // --- CENTRALIZED REWARD LOGIC ---
+        // Determine difficulty
+        let difficulty = 'easy';
+        if (isBossKill) difficulty = 'boss';
+        else if (quest.xpReward > 35) difficulty = 'hard';
+        else if (quest.xpReward > 15) difficulty = 'medium';
 
-        if (userClass === 'Code Warrior') xpBonusMult = 1.1;
-        if (userClass === 'Pixel Rogue') goldBonusMult = 1.2;
-        if (userClass === 'Logic Wizard') { xpBonusMult = 1.05; goldBonusMult = 1.05; }
-
-        // --- PASSIVE SKILL BONUSES ---
-        const unlockedSkills = new Set(profile.unlockedSkills || []);
-        if (unlockedSkills.has('novice_looter')) goldBonusMult += 0.05;
-        if (unlockedSkills.has('midas_touch')) goldBonusMult += 0.15;
-        if (unlockedSkills.has('fast_learner')) xpBonusMult += 0.05;
-
-        // --- CRITICAL MIND (Double Rewards) ---
-        let isCritical = false;
-        if (unlockedSkills.has('critical_mind') && Math.random() < 0.1) {
-            isCritical = true;
-            xpBonusMult *= 2;
-            goldBonusMult *= 2;
-
-            // Critical Toast
-            setTimeout(() => {
-                toast.success("⚡ CRITICAL REWARD! x2 XP & GOLD! ⚡");
-                playSound.bossHit(); // Impact sound
-            }, 1500);
+        // Call App.jsx handler
+        if (onQuestComplete) {
+            onQuestComplete(difficulty);
         }
-
-        // Calculate new XP & Gold
-        const baseGold = isBossKill ? 100 : (Math.floor(Math.random() * 15) + 5);
-        const earnedGold = Math.ceil(baseGold * goldBonusMult);
-        const earnedXp = Math.ceil(quest.xpReward * xpBonusMult);
-
-        let newXp = profile.xp + earnedXp;
-        let newGold = (profile.gold || 0) + earnedGold;
-        let newLevel = profile.level;
-        let newMaxXp = profile.maxXp;
-        let newSkillPoints = profile.skillPoints || 0;
-
-        // Level Up Logic
-        if (newXp >= profile.maxXp) {
-            newLevel += 1;
-            newSkillPoints += 1; // Award 1 SP per level
-            newXp = newXp - profile.maxXp; // Carry over excess XP
-            newMaxXp = Math.floor(newMaxXp * 1.5); // Increase requirement by 50%
-
-            if (soundEnabled) playSound.levelUp(); // LEVEL UP SOUND
-
-            // Bigger confetti for Level UP (only if not boss kill already did it)
-            if (!isBossKill) {
-                setTimeout(() => {
-                    confetti({
-                        particleCount: 200,
-                        spread: 120,
-                        origin: { y: 0.6 }
-                    });
-                }, 500);
-            }
-
-            toast.success(`Leveled Up! +1 Skill Point!`);
-        }
-
-        // --- STATS UPDATE ---
-        const currentStats = profile.stats || {};
-        const newStats = {
-            ...currentStats,
-            questsCompleted: (currentStats.questsCompleted || 0) + 1,
-            bossesDefeated: isBossKill ? (currentStats.bossesDefeated || 0) + 1 : (currentStats.bossesDefeated || 0),
-            totalGoldEarned: (currentStats.totalGoldEarned || 0) + earnedGold
-        };
-
-        // --- HISTORY UPDATE ---
-        const today = new Date().toDateString();
-        const history = profile.history || [];
-        const todayEntry = history.find(h => h.date === today) || { date: today, xp: 0, gold: 0, quests: 0, focusMinutes: 0 };
-
-        const updatedHistoryEntry = {
-            ...todayEntry,
-            xp: (todayEntry.xp || 0) + earnedXp,
-            gold: (todayEntry.gold || 0) + earnedGold,
-            quests: (todayEntry.quests || 0) + 1
-        };
-
-        let newHistory;
-        const entryIndex = history.findIndex(h => h.date === today);
-        if (entryIndex >= 0) {
-            newHistory = [...history];
-            newHistory[entryIndex] = updatedHistoryEntry;
-        } else {
-            newHistory = [...history, updatedHistoryEntry];
-        }
-
-        const updatedProfile = {
-            level: newLevel,
-            xp: newXp,
-            maxXp: newMaxXp,
-            gold: newGold,
-            userClass: profile.userClass,
-            skillPoints: newSkillPoints,
-            unlockedSkills: profile.unlockedSkills || [],
-            stats: newStats,
-            unlockedAchievements: profile.unlockedAchievements || [],
-            history: newHistory
-        };
 
         // Update Quest Status
         // If Boss, ensure HP is 0 and subtasks marked? 
@@ -453,10 +312,7 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled, i
             } : q
         );
 
-        // Remove completed quest after short delay (optional, or keep in "Completed" tab)
-        // For now, let's keep them but visually dimmed
-
-        saveState(updatedProfile, updatedQuests);
+        saveState(null, updatedQuests);
     };
 
     const deleteQuest = (id) => {
@@ -524,34 +380,7 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled, i
 
     return (
         <div className="h-full flex flex-col">
-            {/* Adventurer Profile Header */}
-            <div className="bg-[#2a282a] p-4 rounded-lg border border-[#444] mb-4 flex items-center justify-between shadow-sm">
-                <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-[#444] rounded-full flex items-center justify-center text-2xl border border-[#d4af37]">
-                        {avatar || '🧙‍♂️'}
-                    </div>
-                    <div>
-                        <div className="text-sm text-[#d4af37] font-bold">Lvl {profile.level} {profile.userClass || 'Adventurer'}</div>
-                        <div className="w-40 h-3 bg-[#111] rounded-full mt-1 relative overflow-hidden">
-                            <div
-                                className="h-full bg-[#d4af37] transition-all duration-500 ease-out"
-                                style={{ width: `${(profile.xp / profile.maxXp) * 100}%` }}
-                            />
-                        </div>
-                        <div className="text-xs text-gray-500 text-right mt-1 flex justify-between">
-                            <span className="text-[#ffd700] font-bold">🪙 {profile.gold || 0} G</span>
-                            <span>{profile.xp} / {profile.maxXp} XP</span>
-                        </div>
-                    </div>
-                </div>
-                <div className="text-right">
-                    <div className="flex items-center justify-end gap-1 mb-1" title="Daily Streak">
-                        <span className="text-xl">🔥</span>
-                        <span className="font-bold text-[#ffae42] text-base">{streak} Day Streak</span>
-                    </div>
-                    <div className="text-sm text-gray-400">Quests Completed: <span className="font-bold text-[#e0e0e0]">{quests.filter(q => q.completed).length}</span></div>
-                </div>
-            </div>
+
 
             {/* Add New Quest */}
             {editingQuest ? (
@@ -593,26 +422,28 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled, i
                             {isBossMode ? '👹 BOSS BATTLE Mode' : 'Normal Quest'}
                         </label>
                     </div>
-                    <div className="relative flex gap-2">
+                    <div className="relative flex flex-wrap gap-2">
                         <input
                             type="text"
                             id="newQuestInput"
-                            placeholder={isBossMode ? "Name of the Ancient Evil..." : "New Quest (e.g., Slay the Bug)..."}
+                            placeholder={isBossMode ? "Name of the Ancient Evil..." : "New Quest..."}
                             value={newQuestTitle}
                             onChange={(e) => setNewQuestTitle(e.target.value)}
-                            className={`flex-1 bg-[#2a282a] border ${isBossMode ? 'border-red-500 text-red-100' : 'border-[#444] text-[#e0e0e0]'} text-base rounded-lg py-3 px-4 focus:outline-none focus:border-[#d4af37] placeholder-gray-600`}
+                            className={`flex-1 min-w-[200px] bg-[#2a282a] border ${isBossMode ? 'border-red-500 text-red-100' : 'border-[#444] text-[#e0e0e0]'} text-base rounded-lg py-3 px-4 focus:outline-none focus:border-[#d4af37] placeholder-gray-600`}
                         />
-                        <QuickDateSelector
-                            value={newQuestDeadline}
-                            onChange={setNewQuestDeadline}
-                            className="w-auto"
-                        />
-                        <button
-                            type="submit"
-                            className="bg-[#2a282a] border border-[#d4af37] text-[#d4af37] hover:bg-[#d4af37] hover:text-black transition-colors rounded-lg px-4 flex items-center justify-center font-bold"
-                        >
-                            ➕
-                        </button>
+                        <div className="flex gap-2 shrink-0">
+                            <QuickDateSelector
+                                value={newQuestDeadline}
+                                onChange={setNewQuestDeadline}
+                                className="w-auto"
+                            />
+                            <button
+                                type="submit"
+                                className="bg-[#2a282a] border border-[#d4af37] text-[#d4af37] hover:bg-[#d4af37] hover:text-black transition-colors rounded-lg px-4 flex items-center justify-center font-bold"
+                            >
+                                ➕
+                            </button>
+                        </div>
                     </div>
                 </form>
             )}
@@ -664,151 +495,21 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled, i
                             >
                                 {visualActiveQuests.map(quest => (
                                     <SortableQuestItem key={quest.id} quest={quest}>
-                                        {/* Boss Card Design */}
                                         {quest.type === 'boss' ? (
-                                            <div className="relative group">
-                                                {/* Animated Glow Background */}
-                                                <div className="absolute -inset-0.5 bg-gradient-to-r from-red-600 to-orange-600 rounded-lg blur opacity-40 group-hover:opacity-75 transition duration-1000 group-hover:duration-200 animate-pulse"></div>
-
-                                                <div className="relative bg-[#1a0f0f] border-2 border-red-900/50 rounded-lg p-4 shadow-[0_0_15px_rgba(220,20,60,0.2)]">
-                                                    {/* Header */}
-                                                    <div className="flex items-start justify-between mb-4 border-b border-red-900/30 pb-2">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="bg-red-950/50 p-2 rounded-lg border border-red-800 text-2xl shadow-[0_0_10px_rgba(220,20,60,0.3)]">
-                                                                👹
-                                                            </div>
-                                                            <div>
-                                                                <div className="text-red-100 font-bold text-lg tracking-wider font-serif uppercase drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)]">
-                                                                    {quest.title}
-                                                                </div>
-                                                                <div className="text-red-400/60 text-xs font-mono uppercase tracking-widest">
-                                                                    Boss Battle • {quest.xpReward} XP Reward
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                        <div className="text-red-500 cursor-pointer hover:text-red-300" onClick={(e) => { e.stopPropagation(); deleteQuest(quest.id); }}>
-                                                            ✕
-                                                        </div>
-                                                    </div>
-
-                                                    {/* HP Bar */}
-                                                    <div className="mb-4">
-                                                        <div className="flex justify-between text-[10px] text-red-500 mb-1 font-bold tracking-widest uppercase">
-                                                            <span>DANGER LEVEL</span>
-                                                            <span>{quest.hp} / {quest.maxHp} HP</span>
-                                                        </div>
-                                                        <div className="h-4 bg-[#2a1010] rounded border border-red-900 overflow-hidden relative shadow-inner">
-                                                            {/* Health Fill */}
-                                                            <div
-                                                                className="h-full bg-gradient-to-r from-red-900 via-red-600 to-orange-600 transition-all duration-300 relative"
-                                                                style={{ width: `${(quest.hp / quest.maxHp) * 100}%` }}
-                                                            >
-                                                                <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/diagonal-stripes.png')] opacity-30"></div>
-                                                            </div>
-                                                            {/* Segments (overlay) */}
-                                                            <div className="absolute inset-0 flex">
-                                                                {[...Array(10)].map((_, i) => (
-                                                                    <div key={i} className="flex-1 border-r border-[#1a0f0f]/30 last:border-0"></div>
-                                                                ))}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Minions (Subtasks) Grid */}
-                                                    <div className="space-y-2">
-                                                        <div className="text-[10px] text-red-500/50 uppercase font-bold tracking-widest mb-1">Minions (Subtasks)</div>
-                                                        <div className="grid grid-cols-1 gap-2">
-                                                            {quest.subtasks?.map(sub => (
-                                                                !sub.completed && (
-                                                                    <div key={sub.id} className="group/minion flex items-center gap-3 bg-[#2a1010]/50 border border-red-900/30 p-2 rounded hover:bg-red-900/20 transition-all relative overflow-hidden">
-                                                                        {/* Selection Indicator */}
-                                                                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-red-600 opacity-0 group-hover/minion:opacity-100 transition-opacity"></div>
-
-                                                                        <button
-                                                                            onClick={(e) => { e.stopPropagation(); completeSubtask(quest.id, sub.id); }}
-                                                                            onPointerDown={(e) => e.stopPropagation()}
-                                                                            className="w-5 h-5 rounded border border-red-500 hover:bg-red-600 flex items-center justify-center text-[10px] transition-colors shadow-[0_0_5px_rgba(220,20,60,0.4)]"
-                                                                        >
-                                                                            ⚔️
-                                                                        </button>
-                                                                        <span className="text-sm text-red-100/80 font-mono">{sub.title}</span>
-                                                                    </div>
-                                                                )
-                                                            ))}
-                                                        </div>
-
-                                                        {/* Add Minion Input */}
-                                                        <div className="mt-2 relative">
-                                                            <input
-                                                                type="text"
-                                                                placeholder="+ SUMMON MINION..."
-                                                                className="w-full bg-[#1a0f0f] border border-red-900/30 text-xs py-2 px-3 rounded text-red-200 placeholder-red-900/50 focus:outline-none focus:border-red-600 focus:shadow-[0_0_10px_rgba(220,20,60,0.2)] transition-all font-mono"
-                                                                onKeyDown={(e) => {
-                                                                    if (e.key === ' ') { e.stopPropagation(); }
-                                                                    if (e.key === 'Enter') {
-                                                                        addSubtask(quest.id, e.currentTarget.value);
-                                                                        e.currentTarget.value = '';
-                                                                    }
-                                                                }}
-                                                                onPointerDown={(e) => e.stopPropagation()}
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
+                                            <BossCard
+                                                quest={quest}
+                                                onDelete={deleteQuest}
+                                                onAddSubtask={addSubtask}
+                                                onCompleteSubtask={completeSubtask}
+                                                soundEnabled={soundEnabled}
+                                            />
                                         ) : (
-                                            /* Standard Quest Card (Active) */
-                                            <div className="bg-[#1a181a] border border-[#444] border-l-4 border-l-[#d4af37] rounded-r-lg p-4 transition-all relative mb-3 group shadow-[0_2px_5px_rgba(0,0,0,0.3)] hover:shadow-[0_0_15px_rgba(212,175,55,0.1)] overflow-hidden">
-                                                {/* Card Texture */}
-                                                <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/dark-leather.png')] opacity-30 pointer-events-none"></div>
-
-
-                                                <div className="flex justify-between items-start">
-                                                    <div className="flex-1 cursor-grab active:cursor-grabbing">
-                                                        <div className="font-bold text-base text-[#e0e0e0]">
-                                                            {quest.title}
-                                                        </div>
-                                                        <div className="text-xs text-[#d4af37] mt-1 flex items-center gap-2">
-                                                            <span>Reward: {quest.xpReward} XP</span>
-                                                            {quest.deadline && (
-                                                                <span className={`flex items-center gap-1 ${new Date(quest.deadline) < new Date() ? 'text-red-500 font-bold animate-pulse' : 'text-gray-400'}`}>
-                                                                    ⏰ {new Date(quest.deadline).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                                                                    {new Date(quest.deadline) < new Date() && ' (OVERDUE!)'}
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="flex items-center gap-3 pl-2">
-                                                        <button
-                                                            onClick={(e) => { e.stopPropagation(); completeQuest(quest.id); }}
-                                                            onPointerDown={(e) => e.stopPropagation()}
-                                                            className="bg-[#1e1e1e] hover:bg-[#d4af37] hover:text-black border border-[#d4af37] text-[#d4af37] rounded-full w-10 h-10 flex items-center justify-center transition-all shadow-[0_0_5px_rgba(212,175,55,0.2)] text-lg"
-                                                            title="Complete Quest"
-                                                        >
-                                                            ✔
-                                                        </button>
-                                                        <div className="flex flex-col gap-1">
-                                                            <button
-                                                                onClick={(e) => { e.stopPropagation(); startEditing(quest); }}
-                                                                onPointerDown={(e) => e.stopPropagation()}
-                                                                className="text-gray-500 hover:text-[#d4af37] text-xs px-2"
-                                                                title="Edit Quest"
-                                                            >
-                                                                ✏️
-                                                            </button>
-                                                            <button
-                                                                onClick={(e) => { e.stopPropagation(); deleteQuest(quest.id); }}
-                                                                onPointerDown={(e) => e.stopPropagation()}
-                                                                className="text-gray-500 hover:text-red-400 text-xs px-2"
-                                                                title="Abandon Quest"
-                                                            >
-                                                                ✕
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
+                                            <QuestItem
+                                                quest={quest}
+                                                onComplete={() => completeQuest(quest.id)}
+                                                onDelete={deleteQuest}
+                                                onEdit={startEditing}
+                                            />
                                         )}
                                     </SortableQuestItem>
                                 ))}

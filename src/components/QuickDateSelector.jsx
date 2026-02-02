@@ -75,7 +75,7 @@ const QuickDateSelector = ({ value, onChange, className }) => {
             <button
                 type="button"
                 onClick={() => setIsOpen(!isOpen)}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-all text-sm font-medium min-w-[140px]
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-all text-sm font-medium min-w-[100px] sm:min-w-[140px] whitespace-nowrap
                     ${isOpen ? 'border-[#d4af37] bg-[#2a282a] text-[#d4af37] shadow-[0_0_10px_rgba(212,175,55,0.2)]'
                         : (value ? 'border-[#d4af37] bg-[#1e1e1e] text-[#e0e0e0]' : 'border-[#444] bg-[#1e1e1e] text-gray-500 hover:border-gray-300')}
                 `}

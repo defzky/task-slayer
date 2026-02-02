@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { playSound } from '../utils/soundfx';
+import { ShoppingBag, Backpack, Sparkles, User, Palette, Key, Scroll } from 'lucide-react';
 
 const Shop = ({ profile, updateProfile, setTheme, setAvatar, setConfetti, soundEnabled, inventory, updateInventory, setActiveRaid, setActiveTab, currentTheme, currentAvatar, currentConfetti }) => {
     const [shopTab, setShopTab] = useState('merchant'); // 'merchant' | 'inventory'
@@ -201,111 +202,134 @@ const Shop = ({ profile, updateProfile, setTheme, setAvatar, setConfetti, soundE
         return false;
     };
 
+    const getItemIcon = (type, value) => {
+        if (type === 'theme') return <Palette size={20} />;
+        if (type === 'avatar') return <User size={20} />;
+        if (type === 'confetti') return <Sparkles size={20} />;
+        return <ShoppingBag size={20} />;
+    };
+
     return (
-        <div className="h-full flex flex-col p-2">
-            <h2 className="text-2xl font-bold text-[#ffd700] font-serif border-b-2 border-[#5c4033] pb-3 mb-4 flex justify-between items-end bg-[#1a0f0f] p-4 rounded-t-lg shadow-inner relative overflow-hidden">
-                <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/wood-pattern.png')] opacity-20 pointer-events-none"></div>
-                <div className="relative z-10 flex items-center gap-2">
-                    <span className="text-3xl filter drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)]">🏺</span>
-                    <span className="drop-shadow-[0_2px_0_rgba(0,0,0,1)] text-[#e0c090]">Goblin Market</span>
-                </div>
-                <div className="relative z-10 flex flex-col items-end">
-                    <span className="text-xs text-[#8a6d1f] font-bold uppercase tracking-widest">Your Purse</span>
-                    <div className="text-xl font-mono text-[#ffd700] font-bold bg-[#000]/50 px-3 py-1 rounded border border-[#8a6d1f] flex items-center gap-2 shadow-[inset_0_0_10px_rgba(0,0,0,0.8)]">
-                        <span>💰</span> {profile.gold || 0}
+        <div className="h-full flex flex-col p-4 bg-[#111] overflow-hidden">
+            {/* Header */}
+            <div className="flex justify-between items-center mb-6">
+                <div className="flex items-center gap-3">
+                    <div className="bg-[#1e1e1e] p-2.5 rounded-xl border border-[#333]">
+                        <ShoppingBag className="text-[#d4af37]" size={24} />
+                    </div>
+                    <div>
+                        <h2 className="text-xl font-bold text-white">Goblin Market</h2>
+                        <p className="text-xs text-gray-500">Spend your hard-earned gold</p>
                     </div>
                 </div>
-            </h2>
+                <div className="bg-[#1a1410] px-4 py-2 rounded-xl border border-[#5c4033] flex items-center gap-2">
+                    <span className="text-lg">💰</span>
+                    <span className="text-[#ffd700] font-bold font-mono">{profile.gold || 0}</span>
+                </div>
+            </div>
 
-            {/* Shop Tabs */}
-            <div className="flex gap-2 mb-4 bg-[#0f0a0a] p-1 rounded-lg border border-[#333]">
+            {/* Tabs */}
+            <div className="flex gap-2 mb-4 bg-[#1a1a1a] p-1 rounded-xl border border-[#333]">
                 <button
                     onClick={() => setShopTab('merchant')}
-                    className={`flex-1 py-2 text-sm font-bold rounded flex items-center justify-center gap-2 transition-all ${shopTab === 'merchant' ? 'bg-[#5c4033] text-[#e0d0b0] border border-[#d4af37] shadow-[0_0_10px_rgba(212,175,55,0.2)]' : 'text-gray-500 hover:text-[#d4af37] hover:bg-[#1a1111]'}`}
+                    className={`flex-1 py-2 text-xs font-bold rounded-lg flex items-center justify-center gap-2 transition-all ${shopTab === 'merchant'
+                        ? 'bg-[#d4af37] text-black shadow-lg'
+                        : 'text-gray-400 hover:text-white hover:bg-[#2a2a2a]'
+                        }`}
                 >
-                    ⚖️ Wares
+                    <ShoppingBag size={14} /> Merchant
                 </button>
                 <button
                     onClick={() => setShopTab('inventory')}
-                    className={`flex-1 py-2 text-sm font-bold rounded flex items-center justify-center gap-2 transition-all ${shopTab === 'inventory' ? 'bg-[#1e293b] text-blue-200 border border-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.2)]' : 'text-gray-500 hover:text-blue-300 hover:bg-[#0f172a]'}`}
+                    className={`flex-1 py-2 text-xs font-bold rounded-lg flex items-center justify-center gap-2 transition-all ${shopTab === 'inventory'
+                        ? 'bg-[#d4af37] text-black shadow-lg'
+                        : 'text-gray-400 hover:text-white hover:bg-[#2a2a2a]'
+                        }`}
                 >
-                    🎒 Backpack ({inventory ? inventory.length : 0})
+                    <Backpack size={14} /> Inventory ({inventory ? inventory.length : 0})
                 </button>
             </div>
 
+            {/* Content Area */}
             {shopTab === 'merchant' ? (
-                <div className="grid grid-cols-2 gap-3 overflow-y-auto pr-1">
+                <div className="flex-1 overflow-y-auto pr-2 grid grid-cols-1 md:grid-cols-2 gap-3">
                     {items.map(item => {
                         const equipped = isEquipped(item);
                         return (
-                            <div key={item.id} className={`bg-[#1a0f0f] border-2 rounded-sm p-3 flex flex-col items-center text-center transition-all relative group shadow-[0_4px_6px_rgba(0,0,0,0.3)] ${equipped ? 'border-green-500 shadow-[0_0_15px_rgba(34,197,94,0.3)]' : 'border-[#5c4033] hover:border-[#d4af37]'}`}>
-                                {/* Card Texture */}
-                                <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/dark-wood.png')] opacity-10 pointer-events-none"></div>
-
-                                {equipped && (
-                                    <div className="absolute top-1 right-1 bg-green-900/80 text-green-300 text-[10px] px-1.5 rounded border border-green-700 font-bold uppercase tracking-wider z-20">
-                                        Equipped
+                            <div key={item.id} className={`group relative bg-[#1a1a1a] border rounded-xl p-4 transition-all hover:border-[#d4af37]/50 hover:shadow-[0_0_20px_rgba(0,0,0,0.5)] ${equipped ? 'border-green-800' : 'border-[#333]'}`}>
+                                <div className="flex justify-between items-start mb-3">
+                                    <div className="w-10 h-10 rounded-lg bg-[#111] border border-[#333] flex items-center justify-center text-xl group-hover:scale-110 transition-transform">
+                                        {item.type === 'avatar' ? item.value : getItemIcon(item.type, item.value)}
                                     </div>
-                                )}
-
-                                <div className="relative z-10 text-3xl mb-2 filter drop-shadow-[0_2px_2px_rgba(0,0,0,0.5)] group-hover:scale-110 transition-transform">
-                                    {item.type === 'avatar' ? item.value : (item.type === 'theme' ? '🎨' : '✨')}
+                                    <div className="bg-[#0f0f0f] px-2 py-1 rounded text-[10px] font-mono text-gray-500 uppercase tracking-widest border border-[#222]">
+                                        {item.type}
+                                    </div>
                                 </div>
-                                <div className="relative z-10 font-bold text-[#e0c090] text-sm font-serif">{item.name}</div>
-                                <div className="relative z-10 text-[10px] text-[#8a6d1f] mb-3 uppercase tracking-wider">{item.type}</div>
+
+                                <div className="mb-4">
+                                    <h3 className="font-bold text-gray-200 text-sm">{item.name}</h3>
+                                    {item.description && <p className="text-[10px] text-gray-500 mt-1">{item.description}</p>}
+                                </div>
 
                                 <button
                                     onClick={() => buyItem(item)}
                                     disabled={equipped}
-                                    className={`relative z-10 w-full text-xs py-1.5 rounded font-bold uppercase tracking-wide transition-colors ${equipped
-                                        ? 'bg-green-900 border border-green-600 text-green-200 cursor-default opacity-50'
+                                    className={`w-full py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${equipped
+                                        ? 'bg-green-900/20 text-green-500 border border-green-900/50 cursor-default'
                                         : (item.purchased && item.type !== 'consumable')
-                                            ? 'bg-[#2a282a] border border-[#d4af37] text-[#d4af37] hover:bg-[#3a383a] hover:text-white cursor-pointer active:scale-95'
-                                            : 'bg-[#0f2a0f] border border-[#2e8b57] text-[#50c878] hover:bg-[#1a3a1a] hover:text-white shadow-[0_0_5px_rgba(46,139,87,0.3)] active:scale-95'
+                                            ? 'bg-[#2a2a2a] text-gray-300 hover:bg-[#333] hover:text-white border border-[#444]'
+                                            : 'bg-[#d4af37] text-black hover:bg-[#c5a028] shadow-[0_2px_10px_rgba(212,175,55,0.2)]'
                                         }`}
                                 >
-                                    {equipped ? 'Active' : ((item.purchased && item.type !== 'consumable') ? 'Equip' : (
-                                        <span>
-                                            {item.price !== getPrice(item.price) && <span className="line-through opacity-50 mr-1">{item.price}</span>}
+                                    {equipped ? (
+                                        <><span>✔</span> Equipped</>
+                                    ) : (item.purchased && item.type !== 'consumable') ? (
+                                        'Equip'
+                                    ) : (
+                                        <>
+                                            {item.price !== getPrice(item.price) && <span className="line-through opacity-50 text-[10px]">{item.price}</span>}
                                             {getPrice(item.price)} G
-                                        </span>
-                                    ))}
+                                        </>
+                                    )}
                                 </button>
                             </div>
                         );
                     })}
                 </div>
             ) : (
-                <div className="flex-1 overflow-y-auto">
-                    {(!inventory || inventory.length === 0) && (
-                        <div className="text-center text-gray-500 italic mt-8">Your backpack is empty.<br />Complete quests to find loot!</div>
-                    )}
-                    <div className="space-y-2 pr-1">
-                        {inventory && inventory.map(item => (
-                            <div key={item.id} className="bg-[#0f172a] border border-blue-900/50 rounded-lg p-3 flex items-center justify-between shadow-[0_4px_6px_rgba(0,0,0,0.3)] hover:shadow-[0_0_15px_rgba(0,0,255,0.1)] transition-all group">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 bg-[#1e293b] rounded border border-blue-800 flex items-center justify-center text-2xl shadow-inner group-hover:scale-105 transition-transform">
+                <div className="flex-1 overflow-y-auto pr-2">
+                    {(!inventory || inventory.length === 0) ? (
+                        <div className="h-full flex flex-col items-center justify-center text-gray-600">
+                            <Backpack size={48} className="mb-4 opacity-20" />
+                            <p className="text-sm">Your backpack is empty.</p>
+                            <p className="text-xs mt-2">Complete quests to earn loot!</p>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 gap-2">
+                            {inventory.map(item => (
+                                <div key={item.id} className="bg-[#1a1a1a] border border-[#333] rounded-xl p-3 flex items-center gap-4 hover:border-[#d4af37]/30 transition-colors group">
+                                    <div className="w-12 h-12 bg-[#111] rounded-lg border border-[#333] flex items-center justify-center text-2xl group-hover:scale-105 transition-transform">
                                         {item.id.includes('potion') && '🧪'}
-                                        {item.id.includes('scroll') && '📜'}
-                                        {item.id.includes('key') && '🗝️'}
+                                        {item.id.includes('scroll') && <Scroll size={20} className="text-blue-400" />}
+                                        {item.id.includes('key') && <Key size={20} className="text-yellow-400" />}
                                     </div>
-                                    <div>
-                                        <div className="font-bold text-blue-100 text-sm flex items-center gap-2">
-                                            {item.name}
-                                            <span className="bg-blue-900/50 text-blue-300 text-[10px] px-1.5 rounded py-0.5 border border-blue-800/50">x{item.count}</span>
+                                    <div className="flex-1">
+                                        <div className="flex justify-between">
+                                            <h3 className="font-bold text-gray-200 text-sm">{item.name}</h3>
+                                            <span className="text-xs text-gray-500 bg-[#111] px-2 py-0.5 rounded border border-[#222]">x{item.count}</span>
                                         </div>
-                                        <div className="text-[10px] text-blue-400/70 italic max-w-[150px] leading-tight mt-0.5">{item.description}</div>
+                                        <p className="text-[10px] text-gray-500 mt-1">{item.description}</p>
                                     </div>
+                                    <button
+                                        onClick={() => useItem(item)}
+                                        className="bg-[#2a2a2a] hover:bg-[#d4af37] hover:text-black text-gray-400 px-4 py-2 rounded-lg text-xs font-bold transition-all border border-[#333] hover:border-[#d4af37]"
+                                    >
+                                        Use
+                                    </button>
                                 </div>
-                                <button
-                                    onClick={() => useItem(item)}
-                                    className="bg-[#1e293b] hover:bg-[#2563eb] text-blue-300 hover:text-white border border-blue-700 px-3 py-1.5 rounded text-xs font-bold uppercase tracking-wide transition-all shadow-[0_2px_5px_rgba(0,0,0,0.2)] active:scale-95"
-                                >
-                                    Use
-                                </button>
-                            </div>
-                        ))}
-                    </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
             )}
         </div>

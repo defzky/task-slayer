@@ -63,5 +63,12 @@ export const playSound = {
         });
         // Bass drop
         setTimeout(() => playTone(110, 'square', 0.8, 0.5), 1000);
+    },
+
+    freeze: () => {
+        // "Shatter/Ice" - High freq sine sweep down + noise-like effect
+        playTone(3000, 'sine', 0.1, 0.2); // High cling
+        setTimeout(() => playTone(2500, 'triangle', 0.1, 0.2), 50);
+        setTimeout(() => playTone(500, 'sawtooth', 0.3, 0.1), 100); // Low crack
     }
 };

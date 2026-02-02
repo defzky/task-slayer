@@ -28,28 +28,28 @@ const TopBar = ({
     };
 
     return (
-        <header className="h-16 bg-[#151515] border-b border-[#333] flex items-center justify-between px-6 shrink-0 z-30 shadow-md">
+        <header className="h-16 bg-[#151515] border-b border-[#333] flex items-center justify-between px-3 md:px-6 shrink-0 z-30 shadow-md overflow-hidden">
             {/* Left: User Profile */}
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 md:gap-4 min-w-0">
                 <div
                     onClick={() => setShowClassSelector(true)}
-                    className="w-10 h-10 bg-[#2a282a] rounded-full border border-[#d4af37] flex items-center justify-center text-xl cursor-pointer hover:scale-105 transition-transform"
+                    className="w-8 h-8 md:w-10 md:h-10 bg-[#2a282a] rounded-full border border-[#d4af37] flex items-center justify-center text-lg md:text-xl cursor-pointer hover:scale-105 transition-transform shrink-0"
                     title="Change Class"
                 >
                     {avatar}
                 </div>
 
-                <div className="flex flex-col">
-                    <div className="flex items-center gap-2">
-                        <span className="font-bold text-[#e0e0e0] text-sm tracking-wide">
-                            Lvl {profile.level}
+                <div className="flex flex-col min-w-0">
+                    <div className="flex items-center gap-2 truncate">
+                        <span className="font-bold text-[#e0e0e0] text-xs md:text-sm tracking-wide truncate">
+                            {profile.level} <span className="hidden sm:inline">Lvl</span>
                         </span>
-                        <span className={`text-xs font-mono uppercase ${getClassColor()}`}>
+                        <span className={`text-[10px] md:text-xs font-mono uppercase ${getClassColor()} truncate hidden sm:block`}>
                             {profile.userClass || 'Novice'}
                         </span>
                     </div>
                     {/* XP Bar */}
-                    <div className="w-32 h-1.5 bg-[#333] rounded-full mt-1 relative overflow-hidden" title={`${profile.xp} / ${profile.maxXp} XP`}>
+                    <div className="w-20 md:w-32 h-1.5 bg-[#333] rounded-full mt-1 relative overflow-hidden shrink-0" title={`${profile.xp} / ${profile.maxXp} XP`}>
                         <div
                             className="h-full bg-[#d4af37] transition-all duration-500"
                             style={{ width: `${(profile.xp / profile.maxXp) * 100}%` }}
@@ -59,47 +59,47 @@ const TopBar = ({
             </div>
 
             {/* Right: Stats & System */}
-            <div className="flex items-center gap-6">
+            <div className="flex items-center gap-2 md:gap-6 shrink-0 ml-2">
                 {/* Streak */}
-                <div className="flex items-center gap-2" title="Daily Streak">
-                    <Flame className="w-5 h-5 text-orange-500 animate-pulse" />
-                    <span className="text-orange-100 font-bold font-mono">{profile.streak || 0}</span>
+                <div className="flex items-center gap-1 md:gap-2" title="Daily Streak">
+                    <Flame className="w-4 h-4 md:w-5 md:h-5 text-orange-500 animate-pulse" />
+                    <span className="text-orange-100 font-bold font-mono text-sm md:text-base">{profile.streak || 0}</span>
                 </div>
 
                 {/* Gold */}
-                <div className="flex items-center gap-2" title="Gold">
-                    <Coins className="w-5 h-5 text-yellow-500" />
-                    <span className="text-yellow-100 font-bold font-mono">{profile.gold || 0}</span>
+                <div className="flex items-center gap-1 md:gap-2" title="Gold">
+                    <Coins className="w-4 h-4 md:w-5 md:h-5 text-yellow-500" />
+                    <span className="text-yellow-100 font-bold font-mono text-sm md:text-base">{profile.gold || 0}</span>
                 </div>
 
                 {/* Divider */}
-                <div className="h-6 w-px bg-[#333]"></div>
+                <div className="h-4 md:h-6 w-px bg-[#333]"></div>
 
                 {/* Trophies */}
                 <button
                     onClick={() => setActiveTab('achievements')}
-                    className={`p-2 rounded-lg transition-colors ${activeTab === 'achievements' ? 'bg-[#d4af37]/20 text-[#d4af37]' : 'text-gray-400 hover:text-[#d4af37] hover:bg-[#333]'}`}
+                    className={`p-1.5 md:p-2 rounded-lg transition-colors ${activeTab === 'achievements' ? 'bg-[#d4af37]/20 text-[#d4af37]' : 'text-gray-400 hover:text-[#d4af37] hover:bg-[#333]'}`}
                     title="Achievements"
                 >
-                    <Trophy className="w-5 h-5" />
+                    <Trophy className="w-4 h-4 md:w-5 md:h-5" />
                 </button>
 
                 {/* Sound Toggle */}
                 <button
                     onClick={toggleSound}
-                    className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-[#333] transition-colors"
+                    className="p-1.5 md:p-2 rounded-lg text-gray-400 hover:text-white hover:bg-[#333] transition-colors"
                     title={soundEnabled ? "Mute" : "Unmute"}
                 >
-                    {soundEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+                    {soundEnabled ? <Volume2 className="w-4 h-4 md:w-5 md:h-5" /> : <VolumeX className="w-4 h-4 md:w-5 md:h-5" />}
                 </button>
 
                 {/* Settings */}
                 <button
                     onClick={() => setActiveTab('settings')}
-                    className={`p-2 rounded-lg transition-colors ${activeTab === 'settings' ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white hover:bg-[#333]'}`}
+                    className={`p-1.5 md:p-2 rounded-lg transition-colors ${activeTab === 'settings' ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white hover:bg-[#333]'}`}
                     title="Settings"
                 >
-                    <Settings className="w-5 h-5" />
+                    <Settings className="w-4 h-4 md:w-5 md:h-5" />
                 </button>
             </div>
         </header>

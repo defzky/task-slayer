@@ -217,6 +217,85 @@ function App() {
     }
   };
 
+  // --- GAME ENGINE: CENTRALIZED LOGIC ---
+  const handleQuestComplete = (difficulty) => {
+    const rewards = {
+      'easy': { xp: 10, gold: 5 },
+      'medium': { xp: 20, gold: 12 },
+      'hard': { xp: 40, gold: 25 },
+      'boss': { xp: 100, gold: 100 } // Safety fallback
+    };
+
+    let { xp, gold } = rewards[difficulty] || rewards['easy'];
+
+    // Class Bonuses
+    if (profile.userClass === 'Swordsman') {
+      xp = Math.floor(xp * 1.15); // +15% XP
+    } else if (profile.userClass === 'Rogue') {
+      gold = Math.floor(gold * 1.15); // +15% Gold
+    }
+
+    // Skill Bonuses
+    if (profile.unlockedSkills.includes('negotiator')) {
+      gold = Math.floor(gold * 1.2); // +20% Gold
+    }
+    if (profile.unlockedSkills.includes('wisdom')) {
+      xp = Math.floor(xp * 1.2); // +20% XP
+    }
+
+    // Sound Effect
+    if (difficulty === 'boss') {
+      // Boss sound handled in component, or we can add a specific reward sound
+      playSound.coin();
+    } else {
+      playSound.coin();
+    }
+
+    // Create Toast
+    toast.custom((t) => (
+      <div className="bg-[#1a0f0f] border border-[#d4af37] text-white px-4 py-3 rounded-lg shadow-[0_0_15px_rgba(212,175,55,0.3)] flex items-center gap-3 animate-fade-in-up">
+        <div className="text-2xl">✨</div>
+        <div>
+          <div className="font-bold text-[#d4af37] text-sm uppercase tracking-wider">Quest Complete</div>
+          <div className="text-xs text-gray-400">
+            Received <span className="text-[#ffd700] font-bold">+{gold} Gold</span> & <span className="text-purple-400 font-bold">+{xp} XP</span>
+          </div>
+        </div>
+      </div>
+    ), { duration: 3000 });
+
+    // Update Profile
+    const newStats = { ...(profile.stats || {}) };
+    newStats.questsCompleted = (newStats.questsCompleted || 0) + 1;
+    newStats.totalGoldEarned = (newStats.totalGoldEarned || 0) + gold;
+
+    // Daily History Update
+    const today = new Date().toDateString();
+    let history = [...(profile.history || [])];
+    let todayEntry = history.find(h => h.date === today);
+
+    if (todayEntry) {
+      todayEntry = {
+        ...todayEntry,
+        xp: (todayEntry.xp || 0) + xp,
+        gold: (todayEntry.gold || 0) + gold,
+        quests: (todayEntry.quests || 0) + 1
+      };
+      const idx = history.findIndex(h => h.date === today);
+      history[idx] = todayEntry;
+    } else {
+      history.push({ date: today, xp, gold, quests: 1, focusMinutes: 0 });
+    }
+
+    handleUpdateProfile({
+      ...profile,
+      xp: profile.xp + xp,
+      gold: profile.gold + gold,
+      stats: newStats,
+      history
+    });
+  };
+
   const handleUpdateInventory = (newInventory) => {
     setInventory(newInventory);
     if (chrome?.storage?.sync) {
@@ -368,8 +447,8 @@ function App() {
     <button
       onClick={onClick}
       className={`group relative w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300 ${active
-          ? `bg-[#2a282a] text-white shadow-[0_0_15px_rgba(255,255,255,0.1)] border border-${color.split('-')[1]}-500`
-          : 'text-gray-500 hover:text-white hover:bg-[#1a1a1a]'
+        ? `bg-[#2a282a] text-white shadow-[0_0_15px_rgba(255,255,255,0.1)] border border-${color.split('-')[1]}-500`
+        : 'text-gray-500 hover:text-white hover:bg-[#1a1a1a]'
         }`}
       title={label}
     >
@@ -395,7 +474,6 @@ function App() {
 
       {/* Overlays */}
       {showClassSelector && <ClassSelector currentClass={profile.userClass} onSelect={handleSelectClass} />}
-      {showFocusMode && <FocusTimer profile={profile} updateProfile={handleUpdateProfile} onClose={() => setShowFocusMode(false)} />}
 
       {/* 1. Slim Sidebar (Navigation) */}
       <nav className="w-20 flex flex-col items-center py-6 shrink-0 bg-[#0f0f10] border-r border-[#222] z-20">
@@ -488,6 +566,7 @@ function App() {
             {activeTab === 'quests' && <Quests
               profile={profile}
               updateProfile={handleUpdateProfile}
+              onQuestComplete={handleQuestComplete}
               avatar={avatar}
               confettiStyle={confettiStyle}
               soundEnabled={soundEnabled}
@@ -517,10 +596,13 @@ function App() {
             {activeTab === 'raids' && <RaidBoss profile={profile} updateProfile={handleUpdateProfile} activeRaid={activeRaid} setActiveRaid={handleUpdateRaid} />}
             {activeTab === 'achievements' && <Achievements profile={profile} />}
             {activeTab === 'analytics' && <Analytics profile={profile} />}
-            {activeTab === 'settings' && <Settings updateProfile={handleUpdateProfile} />}
+            {activeTab === 'settings' && <Settings updateProfile={handleUpdateProfile} profile={profile} />}
           </div>
         </main>
       </div>
+
+      {/* Focus Timer Overlay */}
+      {showFocusMode && <FocusTimer profile={profile} updateProfile={handleUpdateProfile} onClose={() => setShowFocusMode(false)} />}
     </div>
   );
 }
