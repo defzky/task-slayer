@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.13.0] - 2026-04-15
+## [0.1.0] - 2026-04-15
 ### Added
 - **Test Coverage**: Comprehensive test suite with 61 tests across 10 files
   - GameContext: Provider and hook tests
@@ -21,11 +21,11 @@
 - **Loading**: 4 tests - default/custom messages, spinner, styling
 - **GameContext**: 2 tests - default values, provider requirement
 
-## [1.12.0] - 2026-04-15
+## [0.0.9] - 2026-04-15
 
-## [1.11.0] - 2026-04-15
+## [0.0.8] - 2026-04-15
 
-## [1.10.0] - 2026-04-15
+## [0.0.7] - 2026-04-15
 ### Added
 - **Error Boundary**: Global error handling component with custom fallback UI
 - **Test Infrastructure**: Vitest + React Testing Library setup
@@ -49,7 +49,7 @@
 - Improved code maintainability and testability
 - All 8 tests passing
 
-## [1.9.0] - 2026-04-15
+## [0.0.6] - 2026-04-15
 ### Changed
 - **TypeScript Migration**: Full codebase migration from JavaScript (.jsx/.js) to TypeScript (.tsx/.ts)
 - **Type Safety**: Added comprehensive type definitions for Profile, Inventory, Raid, Stats, and all components
@@ -66,7 +66,7 @@
 - Build verified: production build succeeds without errors
 - No breaking changes to functionality
 
-## [1.8.1] - 2026-01-30
+## [0.0.5] - 2026-01-30
 ### Added
 - **Quick Date Selector**: New UI for setting quest deadlines with presets (Today Eve, Tomorrow Night, Next Week).
 
@@ -74,7 +74,7 @@
 - **Quests UI**: Replaced standard date input with the new custom selector for better UX.
 - **Quest Date Logic**: Changed default "Tomorrow Morning" preset to "Today Eve" based on user feedback.
 
-## [1.8.0] - 2026-01-29
+## [0.0.4] - 2026-01-29
 ### Added
 - **Daily Login System**: Added streak tracking and daily rewards (Gold + XP) with visual notifications.
 - **Epic Raids**: Introduced "The Golden Dragon" raid boss, summoned via the "Mystery Key".
