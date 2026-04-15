@@ -4,7 +4,7 @@
  */
 
 // DatabaseToki configuration
-const DB_URL = 'http://localhost:3000'; // Change to production URL when deployed
+const DB_URL = 'https://databasetoki.vercel.app'; // Production URL
 const PROJECT_ID = 'task-slayer-6faab9da';
 const API_KEY = 'dbtoki_live_09c447d8706549acb788f4d2636b3ad7';
 
