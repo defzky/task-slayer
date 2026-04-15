@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.2.0] - 2026-04-15
+### Added
+- **Onboarding Tutorial**: Interactive 10-step tutorial for new users
+  - Welcome screen with app overview
+  - Feature walkthrough (Quests, Boss Battles, Notes, Freezer, Shop, Skills)
+  - Class selection preview
+  - Progress tracking with visual progress bar
+  - Skip option for returning users
+  - Persistent completion state (Chrome Storage/localStorage)
+  - Success toast on completion
+- **Onboarding Component**: Fully accessible modal dialog
+  - ARIA labels and roles
+  - Keyboard navigation support
+  - Responsive design
+  - Step navigation (Previous/Next)
+  - Quick Start option
+
+### Changed
+- **App.tsx**: Integrated onboarding flow with state management
+- **Version**: Bumped to 0.2.0 for major feature addition
+
+### Technical
+- Onboarding state persists across sessions
+- Tutorial shows only on first launch
+- All 61 existing tests still passing
+
 ## [0.1.0] - 2026-04-15
 ### Added
 - **Test Coverage**: Comprehensive test suite with 61 tests across 10 files

@@ -1,4 +1,4 @@
-import React, { Suspense, useCallback } from 'react';
+import React, { Suspense, useCallback, useState, useEffect } from 'react';
 import { Toaster, toast } from 'sonner';
 import { useGame } from './contexts';
 import Notes from './components/Notes';
@@ -8,6 +8,7 @@ import Shop from './components/Shop';
 import Achievements, { ACHIEVEMENTS } from './components/Achievements';
 import ClassSelector from './components/ClassSelector';
 import Settings from './components/Settings';
+import Onboarding from './components/Onboarding/Onboarding';
 import { playSound } from './utils/soundfx';
 import Loading from './components/Loading';
 import type { Profile } from './types';
@@ -38,6 +39,8 @@ function App() {
   const [showClassSelector, setShowClassSelector] = React.useState<boolean>(
     !profile.userClass || profile.userClass === 'Novice'
   );
+  const [showOnboarding, setShowOnboarding] = useState<boolean>(false);
+  const [onboardingComplete, setOnboardingComplete] = useState<boolean>(false);
 
   // Level up calculation
   const calculateLevelUp = useCallback((currentProfile: Profile): Profile & { _leveledUp?: boolean } => {
@@ -176,6 +179,56 @@ function App() {
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Check onboarding status on mount
+  React.useEffect(() => {
+    const checkOnboarding = () => {
+      if (chrome?.storage?.sync) {
+        chrome.storage.sync.get(['onboardingComplete'], (result) => {
+          if (!result.onboardingComplete) {
+            setShowOnboarding(true);
+          } else {
+            setOnboardingComplete(true);
+          }
+        });
+      } else {
+        const saved = localStorage.getItem('onboardingComplete');
+        if (saved !== 'true') {
+          setShowOnboarding(true);
+        } else {
+          setOnboardingComplete(true);
+        }
+      }
+    };
+
+    checkOnboarding();
+  }, []);
+
+  const handleOnboardingComplete = useCallback(() => {
+    setShowOnboarding(false);
+    setOnboardingComplete(true);
+
+    if (chrome?.storage?.sync) {
+      chrome.storage.sync.set({ onboardingComplete: true });
+    } else {
+      localStorage.setItem('onboardingComplete', 'true');
+    }
+
+    toast.success('Tutorial complete! Good luck, adventurer! 🎉', {
+      duration: 4000
+    });
+  }, []);
+
+  const handleOnboardingSkip = useCallback(() => {
+    setShowOnboarding(false);
+    setOnboardingComplete(true);
+
+    if (chrome?.storage?.sync) {
+      chrome.storage.sync.set({ onboardingComplete: true });
+    } else {
+      localStorage.setItem('onboardingComplete', 'true');
+    }
+  }, []);
+
   // Theme classes
   const getThemeColors = useCallback(() => {
     switch (theme) {
@@ -208,6 +261,14 @@ function App() {
       aria-label="Task Slayer RPG Productivity App"
     >
       <Toaster position="bottom-right" theme="dark" richColors />
+
+      {/* Onboarding Tutorial */}
+      {showOnboarding && (
+        <Onboarding
+          onComplete={handleOnboardingComplete}
+          onSkip={handleOnboardingSkip}
+        />
+      )}
 
       {/* Class Selector Modal */}
       {showClassSelector && (
