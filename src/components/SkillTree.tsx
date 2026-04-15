@@ -1,10 +1,8 @@
-import React, { useState } from 'react';
-import { toast } from 'sonner';
+import React from 'react';
+import type { Profile, Skill } from '../types';
 import { playSound } from '../utils/soundfx';
 
-// Vertical Layout Coordinates (0-100% relative to container)
-const SKILLS = [
-    // --- ROOTS (Top) ---
+const SKILLS: Skill[] = [
     {
         id: 'fast_learner',
         name: 'Fast Learner',
@@ -23,8 +21,6 @@ const SKILLS = [
         x: 75, y: 15,
         req: null
     },
-
-    // --- TIER 2 (Middle) ---
     {
         id: 'critical_mind',
         name: 'Critical Mind',
@@ -49,11 +45,9 @@ const SKILLS = [
         icon: '⏳',
         description: 'Scrolls cost 50% less',
         cost: 2,
-        x: 50, y: 30, // Center between roots? Or maybe off to side
+        x: 50, y: 30,
         req: 'novice_looter'
     },
-
-    // --- TIER 3 (Bottom) ---
     {
         id: 'midas_touch',
         name: 'Midas Touch',
@@ -65,44 +59,44 @@ const SKILLS = [
     },
 ];
 
-const SkillTree = ({ profile, updateProfile, soundEnabled }) => {
+interface SkillTreeProps {
+    profile: Profile;
+    updateProfile: (profile: Profile) => void;
+    soundEnabled: boolean;
+}
+
+const SkillTree: React.FC<SkillTreeProps> = ({ profile, updateProfile, soundEnabled }) => {
     const unlockedSkills = new Set(profile.unlockedSkills || []);
     const skillPoints = profile.skillPoints || 0;
 
-    const handleUnlock = (skill) => {
+    const handleUnlock = (skill: Skill) => {
         if (unlockedSkills.has(skill.id)) return;
 
-        // Check Logic
         if (skillPoints < skill.cost) {
-            toast.error("Not enough Skill Points! Level up to earn more.");
             return;
         }
         if (skill.req && !unlockedSkills.has(skill.req)) {
-            toast.error("Prerequisite skill not learned directly!");
             return;
         }
 
         if (confirm(`Learn ${skill.name} for ${skill.cost} SP?`)) {
             if (soundEnabled) playSound.levelUp();
 
-            const newProfile = {
+            const newProfile: Profile = {
                 ...profile,
                 skillPoints: skillPoints - skill.cost,
                 unlockedSkills: [...unlockedSkills, skill.id]
             };
             updateProfile(newProfile);
-            toast.success(`Learned ${skill.name}!`);
         }
     };
 
     return (
         <div className="h-full flex flex-col relative overflow-hidden bg-[#0f0f1a]">
-            {/* Background */}
             <div className="absolute inset-0 bg-[#0f0f1a] z-0">
                 <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-20 animate-pulse"></div>
             </div>
 
-            {/* Header */}
             <div className="relative z-10 p-4 border-b border-blue-900/50 flex justify-between items-center bg-[#0f0f1a]/80 backdrop-blur-sm">
                 <h2 className="text-xl font-bold text-blue-100 font-serif flex items-center gap-2">
                     <span className="text-2xl animate-float">🌌</span> Constellation
@@ -115,15 +109,9 @@ const SkillTree = ({ profile, updateProfile, soundEnabled }) => {
                 </div>
             </div>
 
-            {/* Tree Container */}
             <div className="flex-1 relative z-10 overflow-y-auto overflow-x-hidden custom-scrollbar">
-                {/* 
-                    We use a container with min-height to allow scrolling if screen is short.
-                    The SVG overlay must match this container size.
-                 */}
                 <div className="relative w-full min-h-[500px] h-full">
 
-                    {/* SVG Connector Layer */}
                     <svg className="absolute inset-0 w-full h-full pointer-events-none z-0">
                         {SKILLS.map(skill => {
                             if (!skill.req) return null;
@@ -147,12 +135,10 @@ const SkillTree = ({ profile, updateProfile, soundEnabled }) => {
                         })}
                     </svg>
 
-                    {/* Nodes Layer */}
                     {SKILLS.map((skill, index) => {
                         const isUnlocked = unlockedSkills.has(skill.id);
                         const canUnlock = !isUnlocked && (skillPoints >= skill.cost) && (!skill.req || unlockedSkills.has(skill.req));
 
-                        // Animation Logic: Node is static, ICON floats.
                         const animClass = index % 2 === 0 ? 'animate-float' : 'animate-float-delayed';
 
                         return (
@@ -175,7 +161,6 @@ const SkillTree = ({ profile, updateProfile, soundEnabled }) => {
                                 >
                                     <span className={`text-2xl drop-shadow-md ${animClass}`}>{skill.icon}</span>
 
-                                    {/* Cost Badge for locked items */}
                                     {!isUnlocked && (
                                         <div className="absolute -top-2 -right-2 bg-black border border-gray-600 rounded-full w-5 h-5 flex items-center justify-center text-[9px] font-bold text-gray-300">
                                             {skill.cost}
@@ -183,14 +168,12 @@ const SkillTree = ({ profile, updateProfile, soundEnabled }) => {
                                     )}
                                 </button>
 
-                                {/* Label */}
                                 <div className={`mt-2 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider text-center transition-colors max-w-[100px]
                                     ${isUnlocked ? 'bg-[#00f7ff]/10 text-[#00f7ff] border border-[#00f7ff]/30' : 'text-gray-500 bg-black/50'}
                                 `}>
                                     {skill.name}
                                 </div>
 
-                                {/* Hover Tooltip (Positioned smartly) */}
                                 <div className="absolute top-full mt-2 bg-black/95 text-left p-3 rounded-lg border border-blue-500/30 w-40 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl backdrop-blur-md">
                                     <div className="text-xs text-blue-100/90 leading-tight">{skill.description}</div>
                                     {!isUnlocked && <div className="text-[9px] text-yellow-500 mt-1 font-mono">Requires: {skill.cost} SP</div>}

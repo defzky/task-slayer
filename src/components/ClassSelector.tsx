@@ -1,13 +1,19 @@
 import React from 'react';
+import type { ClassInfo } from '../types';
 
-const CLASSES = [
+const CLASSES: ClassInfo[] = [
     { id: 'novice', name: 'Novice', icon: '🌱', desc: 'Just starting out. No bonuses.', bonus: 'None' },
     { id: 'warrior', name: 'Code Warrior', icon: '⚔️', desc: 'Disciplined and strong.', bonus: '+10% XP per Quest' },
     { id: 'wizard', name: 'Logic Wizard', icon: '🔮', desc: 'Master of algorithms.', bonus: '+5% XP & +5% Gold' },
     { id: 'rogue', name: 'Pixel Rogue', icon: '🗡️', desc: 'Sneaky and rich.', bonus: '+20% Gold per Quest' },
 ];
 
-const ClassSelector = ({ currentClass, onSelect }) => {
+interface ClassSelectorProps {
+    currentClass: string;
+    onSelect: (className: string) => void;
+}
+
+const ClassSelector: React.FC<ClassSelectorProps> = ({ currentClass, onSelect }) => {
     return (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
             <div className="bg-[#2a282a] border-2 border-[#d4af37] rounded-lg p-6 max-w-md w-full shadow-[0_0_20px_rgba(212,175,55,0.3)]">

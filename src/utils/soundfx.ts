@@ -3,7 +3,7 @@
 
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-const playTone = (freq, type, duration, release = 0.1) => {
+const playTone = (freq: number, type: OscillatorType, duration: number, release = 0.1) => {
     if (audioCtx.state === 'suspended') {
         audioCtx.resume();
     }
@@ -26,42 +26,39 @@ const playTone = (freq, type, duration, release = 0.1) => {
 
 export const playSound = {
     coin: () => {
-        // "Bling!" - High pitch sine/triangle
         playTone(1200, 'sine', 0.1);
         setTimeout(() => playTone(1600, 'sine', 0.2), 50);
     },
 
     levelUp: () => {
-        // "Da-da-da-DAAA!" - Arpeggio
-        const now = audioCtx.currentTime;
         [440, 554, 659, 880].forEach((freq, i) => {
             setTimeout(() => playTone(freq, 'square', 0.1, 0.3), i * 100);
         });
     },
 
     click: () => {
-        // Subtle click
         playTone(800, 'triangle', 0.05, 0.05);
     },
 
     error: () => {
-        // Low buzz
         playTone(150, 'sawtooth', 0.2);
     },
 
     bossHit: () => {
-        // Heavy impact - Low freq square with quick decay
         playTone(100, 'square', 0.1, 0.05);
         setTimeout(() => playTone(80, 'sawtooth', 0.1, 0.1), 50);
     },
 
     bossDie: () => {
-        // Epic Victory - Slower Arpeggio with harmony
-        const now = audioCtx.currentTime;
         [220, 330, 440, 554, 659, 880, 1109].forEach((freq, i) => {
             setTimeout(() => playTone(freq, 'sawtooth', 0.2, 0.5), i * 150);
         });
-        // Bass drop
         setTimeout(() => playTone(110, 'square', 0.8, 0.5), 1000);
+    },
+
+    heal: () => {
+        playTone(600, 'sine', 0.15);
+        setTimeout(() => playTone(800, 'sine', 0.15), 100);
+        setTimeout(() => playTone(1000, 'sine', 0.2), 200);
     }
 };

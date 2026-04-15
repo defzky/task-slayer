@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { toast } from 'sonner';
+import type { Note, Profile } from '../types';
 import ReactMarkdown from 'react-markdown';
 import rehypeRaw from 'rehype-raw';
 import { playSound } from '../utils/soundfx';
@@ -20,8 +20,15 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
-// Sortable Note Item Component
-const SortableNoteItem = ({ note, isActive, onClick, onDelete, children }) => {
+interface SortableNoteItemProps {
+    note: Note;
+    isActive: boolean;
+    onClick: () => void;
+    onDelete: (e: React.MouseEvent, id: number) => void;
+    children: React.ReactNode;
+}
+
+const SortableNoteItem: React.FC<SortableNoteItemProps> = ({ note, onClick, onDelete, children }) => {
     const {
         attributes,
         listeners,
@@ -42,26 +49,28 @@ const SortableNoteItem = ({ note, isActive, onClick, onDelete, children }) => {
     );
 };
 
-// Custom Pre Block with Copy Button
-const PreBlock = ({ children, ...props }) => {
+interface PreBlockProps {
+    children?: React.ReactNode;
+}
+
+const PreBlock: React.FC<PreBlockProps> = ({ children, ...props }) => {
     const handleCopy = () => {
-        // Extract text content from children
         let textToCopy = '';
-        if (children && children.props && children.props.children) {
-            textToCopy = children.props.children;
+        if (children && (children as React.ReactElement).props && (children as React.ReactElement).props.children) {
+            textToCopy = (children as React.ReactElement).props.children as string;
         } else if (typeof children === 'string') {
             textToCopy = children;
         } else if (Array.isArray(children)) {
             textToCopy = children.map(child => {
                 if (typeof child === 'string') return child;
-                if (child.props && child.props.children) return child.props.children;
+                if ((child as React.ReactElement).props && (child as React.ReactElement).props.children) {
+                    return (child as React.ReactElement).props.children as string;
+                }
                 return '';
             }).join('');
         }
 
         navigator.clipboard.writeText(textToCopy);
-        toast.success('Copied to clipboard!');
-        playSound.coin();
     };
 
     return (
@@ -80,10 +89,14 @@ const PreBlock = ({ children, ...props }) => {
     );
 };
 
-const Notes = ({ profile, updateProfile }) => {
-    // Data Structure: [{ id: 123, content: "...", updatedAt: "..." }]
-    const [notes, setNotes] = useState([]);
-    const [activeNoteId, setActiveNoteId] = useState(null);
+interface NotesProps {
+    profile: Profile;
+    updateProfile: (profile: Profile) => void;
+}
+
+const Notes: React.FC<NotesProps> = ({ profile, updateProfile }) => {
+    const [notes, setNotes] = useState<Note[]>([]);
+    const [activeNoteId, setActiveNoteId] = useState<number | null>(null);
     const [isPreview, setIsPreview] = useState(false);
     const [statusMsg, setStatusMsg] = useState('');
 
@@ -98,15 +111,13 @@ const Notes = ({ profile, updateProfile }) => {
         })
     );
 
-    // Load notes on mount
     useEffect(() => {
-        const loadData = (result) => {
-            let loadedNotes = [];
+        const loadData = (result: Record<string, unknown>) => {
+            let loadedNotes: Note[] = [];
             if (result.notesList && Array.isArray(result.notesList)) {
-                loadedNotes = result.notesList;
+                loadedNotes = result.notesList as Note[];
             } else if (result.quickNote) {
-                // Migrate old single note
-                loadedNotes = [{ id: Date.now(), content: result.quickNote, updatedAt: new Date().toISOString() }];
+                loadedNotes = [{ id: Date.now(), content: result.quickNote as string, updatedAt: new Date().toISOString() }];
             }
 
             setNotes(loadedNotes);
@@ -118,24 +129,25 @@ const Notes = ({ profile, updateProfile }) => {
         if (chrome?.storage?.sync) {
             chrome.storage.sync.get(['notesList', 'quickNote'], (syncRes) => {
                 if (syncRes.notesList || syncRes.quickNote) {
-                    loadData(syncRes);
+                    loadData(syncRes as Record<string, unknown>);
                 } else {
-                    // Check Local
                     chrome.storage.local.get(['notesList', 'quickNote'], (localRes) => {
                         if (localRes.notesList || localRes.quickNote) {
-                            loadData(localRes);
-                            chrome.storage.sync.set(localRes); // Migrate
+                            loadData(localRes as Record<string, unknown>);
+                            chrome.storage.sync.set(localRes);
                         }
                     });
                 }
             });
         } else if (chrome?.storage?.local) {
-            chrome.storage.local.get(['notesList', 'quickNote'], loadData);
+            chrome.storage.local.get(['notesList', 'quickNote'], (localRes) => {
+                loadData(localRes as Record<string, unknown>);
+            });
         } else {
             const savedList = localStorage.getItem('notesList');
             const savedOld = localStorage.getItem('quickNote');
-            let loadedNotes = [];
-            if (savedList) loadedNotes = JSON.parse(savedList);
+            let loadedNotes: Note[] = [];
+            if (savedList) loadedNotes = JSON.parse(savedList) as Note[];
             else if (savedOld) loadedNotes = [{ id: Date.now(), content: savedOld, updatedAt: new Date().toISOString() }];
 
             setNotes(loadedNotes);
@@ -143,7 +155,7 @@ const Notes = ({ profile, updateProfile }) => {
         }
     }, []);
 
-    const saveNotes = (updatedNotes) => {
+    const saveNotes = (updatedNotes: Note[]) => {
         setNotes(updatedNotes);
         if (chrome?.storage?.sync) {
             chrome.storage.sync.set({ notesList: updatedNotes });
@@ -154,9 +166,9 @@ const Notes = ({ profile, updateProfile }) => {
         }
     };
 
-    const handleDragEnd = (event) => {
+    const handleDragEnd = (event: { active: { id: unknown }; over: { id: unknown } | null }) => {
         const { active, over } = event;
-        if (active.id !== over.id) {
+        if (over && active.id !== over.id) {
             const oldIndex = notes.findIndex((n) => n.id === active.id);
             const newIndex = notes.findIndex((n) => n.id === over.id);
             const newNotes = arrayMove(notes, oldIndex, newIndex);
@@ -166,13 +178,12 @@ const Notes = ({ profile, updateProfile }) => {
 
     const createNote = () => {
         playSound.click();
-        const newNote = {
+        const newNote: Note = {
             id: Date.now(),
             content: '# New Scroll\n',
             updatedAt: new Date().toISOString()
         };
         const updated = [newNote, ...notes];
-        // Update Stats if creating new note
         if (profile && updateProfile) {
             const currentStats = profile.stats || {};
             updateProfile({
@@ -188,10 +199,10 @@ const Notes = ({ profile, updateProfile }) => {
         setActiveNoteId(newNote.id);
     };
 
-    const deleteNote = (e, id) => {
+    const deleteNote = (e: React.MouseEvent, id: number) => {
         e.stopPropagation();
         if (confirm('Burn this scroll forever?')) {
-            playSound.error(); // Using error sound as "destruction"
+            playSound.error();
             const updated = notes.filter(n => n.id !== id);
             saveNotes(updated);
             if (activeNoteId === id) {
@@ -200,7 +211,7 @@ const Notes = ({ profile, updateProfile }) => {
         }
     };
 
-    const updateActiveNote = (content) => {
+    const updateActiveNote = (content: string) => {
         const updated = notes.map(n =>
             n.id === activeNoteId ? { ...n, content, updatedAt: new Date().toISOString() } : n
         );
@@ -224,13 +235,13 @@ const Notes = ({ profile, updateProfile }) => {
 
     const handleManualSave = () => {
         playSound.coin();
-        toast.success("Scroll saved to archives!");
+        setStatusMsg('Saved!');
+        setTimeout(() => setStatusMsg(''), 2000);
     };
 
     const activeNote = notes.find(n => n.id === activeNoteId);
 
-    // Helper to get title from first line
-    const getTitle = (content) => {
+    const getTitle = (content: string): string => {
         const lines = content.split('\n');
         const firstLine = lines.find(l => l.trim().length > 0);
         return firstLine ? firstLine.replace(/^#+\s*/, '').substring(0, 30) : 'Untitled Scroll';
@@ -238,9 +249,7 @@ const Notes = ({ profile, updateProfile }) => {
 
     return (
         <div className="h-full flex flex-col gap-2">
-            {/* TOP: Notes List (Saved Scrolls) */}
             <div className="h-1/3 bg-[#1a181a] border-2 border-[#444] rounded-lg flex flex-col shadow-[0_0_20px_rgba(0,0,0,0.5)] relative overflow-hidden">
-                {/* Decorative sheen */}
                 <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-[#d4af37]/10 to-transparent pointer-events-none"></div>
 
                 <div className="flex justify-between items-center p-3 border-b border-[#333] bg-[#222022]">
@@ -269,7 +278,7 @@ const Notes = ({ profile, updateProfile }) => {
                             strategy={verticalListSortingStrategy}
                         >
                             {notes.map(note => (
-                                <SortableNoteItem key={note.id} note={note}>
+                                <SortableNoteItem key={note.id} note={note} onClick={() => setActiveNoteId(note.id)} onDelete={deleteNote}>
                                     <div
                                         onClick={() => { playSound.click(); setActiveNoteId(note.id); }}
                                         className={`p-2 rounded cursor-pointer flex justify-between items-center group touch-none relative ${activeNoteId === note.id ? 'bg-[#333] border-l-2 border-[#d4af37]' : 'hover:bg-[#2a282a]'}`}
@@ -278,8 +287,8 @@ const Notes = ({ profile, updateProfile }) => {
                                             {getTitle(note.content)}
                                         </div>
                                         <button
-                                            onClick={(e) => deleteNote(e, note.id)}
                                             onPointerDown={(e) => e.stopPropagation()}
+                                            onClick={(e) => deleteNote(e, note.id)}
                                             className="opacity-0 group-hover:opacity-100 text-gray-500 hover:text-red-400 text-xs px-1"
                                         >
                                             🗑️
@@ -292,11 +301,9 @@ const Notes = ({ profile, updateProfile }) => {
                 </div>
             </div>
 
-            {/* BOTTOM: Editor */}
             <div className="flex-1 bg-[#1a181a] border-2 border-[#444] rounded-lg flex flex-col overflow-hidden relative shadow-2xl">
                 {activeNote ? (
                     <>
-                        {/* Editor Toolbar */}
                         <div className="flex justify-between items-center p-2 border-b border-[#333] bg-[#222022]">
                             <div className="flex items-center gap-2">
                                 <span className="text-xs text-[#888] font-mono">Runescript...</span>
@@ -324,9 +331,7 @@ const Notes = ({ profile, updateProfile }) => {
                             </div>
                         </div>
 
-                        {/* Textarea or Preview */}
                         <div className="flex-1 relative overflow-hidden bg-[#151315]">
-                            {/* Texture Overlay */}
                             <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/dark-leather.png')] opacity-50 pointer-events-none"></div>
 
                             {!isPreview ? (

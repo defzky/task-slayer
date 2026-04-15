@@ -1,15 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import { toast } from 'sonner';
+import React, { useState } from 'react';
 import confetti from 'canvas-confetti';
+import type { Profile, ActiveRaid, RaidTask, Boss } from '../types';
 import { playSound } from '../utils/soundfx';
-
 import {
     DndContext,
     closestCenter,
     KeyboardSensor,
     PointerSensor,
     useSensor,
-    useSensors
+    useSensors,
 } from '@dnd-kit/core';
 import {
     arrayMove,
@@ -20,16 +19,20 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
-// Boss Presets
-const BOSSES = [
-    { id: 'dragon', name: 'The Code Dragon', hpMultiplier: 1, icon: '🐲', color: '#10b981', bg: 'bg-green-900/20' }, // Easy
-    { id: 'demon', name: 'Deadline Demon', hpMultiplier: 1.5, icon: '👹', color: '#ef4444', bg: 'bg-red-900/20' },   // Medium
-    { id: 'void', name: 'Void Construct', hpMultiplier: 2, icon: '👾', color: '#8b5cf6', bg: 'bg-purple-900/20' },   // Hard
-    { id: 'dragon_gold', name: 'The Golden Dragon', hpMultiplier: 3, icon: '🐲', color: '#ffd700', bg: 'bg-yellow-900/20' } // Special
+const BOSSES: Boss[] = [
+    { id: 'dragon', name: 'The Code Dragon', hpMultiplier: 1, icon: '🐲', color: '#10b981', bg: 'bg-green-900/20' },
+    { id: 'demon', name: 'Deadline Demon', hpMultiplier: 1.5, icon: '👹', color: '#ef4444', bg: 'bg-red-900/20' },
+    { id: 'void', name: 'Void Construct', hpMultiplier: 2, icon: '👾', color: '#8b5cf6', bg: 'bg-purple-900/20' },
+    { id: 'dragon_gold', name: 'The Golden Dragon', hpMultiplier: 3, icon: '🐲', color: '#ffd700', bg: 'bg-yellow-900/20' }
 ];
 
-// Sortable Item
-const SortableTask = ({ task, onComplete, onDelete }) => {
+interface SortableTaskProps {
+    task: RaidTask;
+    onComplete: (taskId: number) => void;
+    onDelete: (taskId: number) => void;
+}
+
+const SortableTask: React.FC<SortableTaskProps> = ({ task, onComplete, onDelete }) => {
     const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: task.id });
     const style = { transform: CSS.Transform.toString(transform), transition };
 
@@ -58,12 +61,18 @@ const SortableTask = ({ task, onComplete, onDelete }) => {
     );
 };
 
-const RaidBoss = ({ profile, updateProfile, activeRaid, setActiveRaid }) => {
+interface RaidBossProps {
+    profile: Profile;
+    updateProfile: (profile: Profile) => void;
+    activeRaid: ActiveRaid | null;
+    setActiveRaid: (raid: ActiveRaid | null) => void;
+}
+
+const RaidBoss: React.FC<RaidBossProps> = ({ profile, updateProfile, activeRaid, setActiveRaid }) => {
     const [shake, setShake] = useState(false);
     const [flash, setFlash] = useState(false);
     const [newTask, setNewTask] = useState('');
 
-    // Dnd Sensors
     const sensors = useSensors(
         useSensor(PointerSensor, {
             activationConstraint: {
@@ -75,51 +84,42 @@ const RaidBoss = ({ profile, updateProfile, activeRaid, setActiveRaid }) => {
         })
     );
 
-    // --- CREATE RAID ---
     const [setupMode, setSetupMode] = useState(!activeRaid);
     const [raidName, setRaidName] = useState('');
-    const [selectedBoss, setSelectedBoss] = useState(BOSSES[0]);
+    const [selectedBoss, setSelectedBoss] = useState<Boss>(BOSSES[0]);
 
     const startRaid = () => {
         if (!raidName.trim()) return;
 
-        const newRaid = {
+        const newRaid: ActiveRaid = {
             id: Date.now(),
             name: raidName,
             bossId: selectedBoss.id,
-            maxHp: 100, // Percentage based mostly, but let's say 100%
+            maxHp: 100,
             currentHp: 100,
-            tasks: [], // Subtasks
+            tasks: [],
             status: 'active'
         };
 
         setActiveRaid(newRaid);
         setSetupMode(false);
-        playSound.bossHit(); // Start sound
+        playSound.bossHit();
     };
 
-    // --- BATTLE LOGIC ---
-    const calculateHp = (tasks) => {
+    const calculateHp = (tasks: RaidTask[]): number => {
         if (tasks.length === 0) return 100;
         const completed = tasks.filter(t => t.completed).length;
         if (completed === 0) return 100;
-        // Simple formula: HP is percentage of REMAINING tasks
-        // Or damage per task? Let's use percentage of remaining.
-        // Actually, for a visual bar, it's better if HP = (Remaining / Total) * 100
         const remaining = tasks.length - completed;
         return Math.floor((remaining / tasks.length) * 100);
     };
 
-    const addTask = (e) => {
+    const addTask = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!newTask.trim()) return;
+        if (!newTask.trim() || !activeRaid) return;
 
-        const task = { id: Date.now(), title: newTask, completed: false };
+        const task: RaidTask = { id: Date.now(), title: newTask, completed: false };
         const updatedTasks = [...(activeRaid.tasks || []), task];
-
-        // Updating tasks usually HEALS the boss if we use percentage logic directly?
-        // Let's keep logic simple: HP is strictly based on % of UNCOMPLETED tasks.
-        // So adding a task adds HP.
 
         const newHp = calculateHp(updatedTasks);
 
@@ -131,8 +131,9 @@ const RaidBoss = ({ profile, updateProfile, activeRaid, setActiveRaid }) => {
         setNewTask('');
     };
 
-    const completeTask = (taskId) => {
-        // DAMAGE PHASE
+    const completeTask = (taskId: number) => {
+        if (!activeRaid) return;
+
         setShake(true);
         setFlash(true);
         setTimeout(() => { setShake(false); setFlash(false); }, 500);
@@ -145,7 +146,6 @@ const RaidBoss = ({ profile, updateProfile, activeRaid, setActiveRaid }) => {
         const newHp = calculateHp(updatedTasks);
 
         if (newHp === 0) {
-            // BOSS DEFEATED
             handleVictory();
         }
 
@@ -157,45 +157,35 @@ const RaidBoss = ({ profile, updateProfile, activeRaid, setActiveRaid }) => {
     };
 
     const handleVictory = () => {
-        playSound.bossDie(); // Need to implement or reuse
+        playSound.bossDie();
         confetti({ particleCount: 500, spread: 150 });
 
-        toast.custom((t) => (
-            <div className="bg-black border-4 border-yellow-500 p-6 rounded-xl text-center shadow-[0_0_50px_rgba(255,215,0,0.8)] animate-bounce">
-                <div className="text-6xl mb-2">💀</div>
-                <div className="text-3xl font-bold text-yellow-500 font-serif">LEGENDARY VICTORY!</div>
-                <div className="text-white mt-2">Raid Boss Defeated!</div>
-                <div className="text-yellow-300 mt-1">+5000 Gold | +10000 XP</div>
-            </div>
-        ), { duration: 10000 });
-
-        // Update Profile Rewards
         const currentStats = profile.stats || {};
         updateProfile({
             ...profile,
             gold: (profile.gold || 0) + 5000,
-            xp: (profile.xp || 0) + 10000, // Massive XP likely levels up multiple times
+            xp: (profile.xp || 0) + 10000,
             stats: {
                 ...currentStats,
                 bossesDefeated: (currentStats.bossesDefeated || 0) + 1
             }
         });
 
-        // Delay clearing raid
         setTimeout(() => {
             setActiveRaid(null);
             setSetupMode(true);
         }, 8000);
     };
 
-    const deleteTask = (id) => {
+    const deleteTask = (id: number) => {
+        if (!activeRaid) return;
         const updatedTasks = activeRaid.tasks.filter(t => t.id !== id);
         setActiveRaid({ ...activeRaid, tasks: updatedTasks, currentHp: calculateHp(updatedTasks) });
     };
 
-    const handleDragEnd = (event) => {
+    const handleDragEnd = (event: { active: { id: unknown }; over: { id: unknown } | null }) => {
         const { active, over } = event;
-        if (active.id !== over.id) {
+        if (over && active.id !== over.id && activeRaid) {
             const oldIndex = activeRaid.tasks.findIndex((t) => t.id === active.id);
             const newIndex = activeRaid.tasks.findIndex((t) => t.id === over.id);
             const newTasks = arrayMove(activeRaid.tasks, oldIndex, newIndex);
@@ -205,8 +195,7 @@ const RaidBoss = ({ profile, updateProfile, activeRaid, setActiveRaid }) => {
 
     const handleSurrender = () => {
         if (confirm("Are you sure you want to flee? The boss will heal fully and you will gain nothing!")) {
-            playSound.error(); // Defeat sound
-            toast.error("You fled the battle... Shameful!");
+            playSound.error();
             setActiveRaid(null);
             setSetupMode(true);
         }
@@ -260,13 +249,9 @@ const RaidBoss = ({ profile, updateProfile, activeRaid, setActiveRaid }) => {
 
     return (
         <div className={`h-full flex flex-col relative overflow-hidden bg-[#0f0a0a] transition-colors duration-100 ${flash ? 'bg-red-900/50' : ''}`}>
-            {/* Environment */}
             <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/dark-matter.png')] opacity-30 pointer-events-none"></div>
 
-            {/* BOSS VISUALS */}
             <div className={`p-4 flex flex-col items-center justify-center relative min-h-[30%] ${shake ? 'animate-shake' : ''}`}>
-
-                {/* HP BAR */}
                 <div className="w-full max-w-lg mb-4 relative z-10">
                     <div className="flex justify-between text-xs font-bold text-red-400 mb-1 uppercase tracking-wider items-end">
                         <div className="flex flex-col">
@@ -285,26 +270,21 @@ const RaidBoss = ({ profile, updateProfile, activeRaid, setActiveRaid }) => {
                             className="h-full bg-gradient-to-r from-red-600 to-red-500 transition-all duration-500 ease-out"
                             style={{ width: `${activeRaid.currentHp}%` }}
                         ></div>
-                        {/* Segments */}
                         <div className="absolute inset-0 grid grid-cols-10 pointer-events-none">
                             {[...Array(9)].map((_, i) => <div key={i} className="border-r border-black/20 h-full"></div>)}
                         </div>
                     </div>
                 </div>
 
-                {/* SPRITE */}
                 <div className="relative group">
                     <div className={`text-8xl filter drop-shadow-[0_0_30px_rgba(220,38,38,0.6)] transform transition-transform duration-700 ${shake ? 'scale-90 brightness-200 contrast-150 grayscale-0' : 'animate-float'}`}>
                         {bossData.icon}
                     </div>
-                    {/* Hit Effect Overlay */}
                     {flash && <div className="absolute inset-0 flex items-center justify-center text-4xl font-bold text-white animate-ping">💥</div>}
                 </div>
             </div>
 
-            {/* ACTION PANEL (TASKS) */}
             <div className="flex-1 bg-[#1a1c22] border-t-4 border-red-900/50 rounded-t-3xl relative z-10 shadow-2xl flex flex-col">
-                {/* Input */}
                 <div className="p-4 border-b border-slate-700 bg-[#14161b]">
                     <form onSubmit={addTask} className="flex gap-2">
                         <input
@@ -320,7 +300,6 @@ const RaidBoss = ({ profile, updateProfile, activeRaid, setActiveRaid }) => {
                     </form>
                 </div>
 
-                {/* List */}
                 <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
                     {activeTasks.length === 0 ? (
                         <div className="text-center text-slate-600 mt-8 italic">
@@ -341,7 +320,6 @@ const RaidBoss = ({ profile, updateProfile, activeRaid, setActiveRaid }) => {
                     )}
                 </div>
 
-                {/* Footer Status */}
                 <div className="p-2 bg-black/50 text-center text-[10px] text-zinc-500 font-mono">
                     RAID IN PROGRESS • {activeTasks.length} TASKS REMAINING
                 </div>

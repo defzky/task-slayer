@@ -1,8 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'sonner';
+import type { Profile, FrozenSession, TabInfo } from '../types';
 
-const Freezer = ({ profile, updateProfile }) => {
-    const [sessions, setSessions] = useState([]);
+interface FreezerProps {
+    profile: Profile;
+    updateProfile: (profile: Profile) => void;
+}
+
+const Freezer: React.FC<FreezerProps> = ({ profile, updateProfile }) => {
+    const [sessions, setSessions] = useState<FrozenSession[]>([]);
 
     useEffect(() => {
         loadSessions();
@@ -12,16 +18,16 @@ const Freezer = ({ profile, updateProfile }) => {
         if (chrome?.storage?.local) {
             chrome.storage.local.get(['frozenSessions'], (result) => {
                 if (result.frozenSessions) {
-                    setSessions(result.frozenSessions);
+                    setSessions(result.frozenSessions as FrozenSession[]);
                 }
             });
         } else {
             const saved = localStorage.getItem('frozenSessions');
-            if (saved) setSessions(JSON.parse(saved));
+            if (saved) setSessions(JSON.parse(saved) as FrozenSession[]);
         }
     };
 
-    const saveSessions = (newSessions) => {
+    const saveSessions = (newSessions: FrozenSession[]) => {
         setSessions(newSessions);
         if (chrome?.storage?.local) {
             chrome.storage.local.set({ frozenSessions: newSessions });
@@ -31,18 +37,12 @@ const Freezer = ({ profile, updateProfile }) => {
     };
 
     const handleFreeze = async () => {
-        // 1. Get current tabs
-        let tabs = [];
+        let tabs: TabInfo[] = [];
         if (chrome?.tabs) {
-            // Real extension environment
             const currentWindow = await chrome.windows.getCurrent();
             const tabList = await chrome.tabs.query({ windowId: currentWindow.id });
-            tabs = tabList.map(t => ({ url: t.url, title: t.title, favIconUrl: t.favIconUrl }));
-
-            // Close window (optional, maybe ask user? for now just save)
-            // chrome.windows.remove(currentWindow.id); 
+            tabs = tabList.map(t => ({ url: t.url || '', title: t.title || '', favIconUrl: t.favIconUrl }));
         } else {
-            // Mock environment
             tabs = [
                 { title: 'Google', url: 'https://google.com' },
                 { title: 'Stack Overflow - React Error', url: 'https://stackoverflow.com/questions/123' },
@@ -50,7 +50,7 @@ const Freezer = ({ profile, updateProfile }) => {
             ];
         }
 
-        const newSession = {
+        const newSession: FrozenSession = {
             id: Date.now(),
             name: `Quest Log #${sessions.length + 1}`,
             date: new Date().toLocaleString(),
@@ -61,7 +61,7 @@ const Freezer = ({ profile, updateProfile }) => {
         toast.success("Time frozen! Context saved.");
     };
 
-    const handleRestore = (session) => {
+    const handleRestore = (session: FrozenSession) => {
         if (chrome?.windows) {
             const urls = session.tabs.map(t => t.url);
             chrome.windows.create({ url: urls });
@@ -70,7 +70,6 @@ const Freezer = ({ profile, updateProfile }) => {
             toast.info(`Restoring ${session.tabs.length} tabs locally (check console)`);
         }
 
-        // Stats Update (Time Lord Achievement)
         if (profile && updateProfile) {
             const currentStats = profile.stats || {};
             const restoredCount = session.tabs ? session.tabs.length : 0;
@@ -84,7 +83,7 @@ const Freezer = ({ profile, updateProfile }) => {
         }
     };
 
-    const handleDelete = (id) => {
+    const handleDelete = (id: number) => {
         const newSessions = sessions.filter(s => s.id !== id);
         saveSessions(newSessions);
     };
@@ -121,7 +120,6 @@ const Freezer = ({ profile, updateProfile }) => {
                 )}
                 {sessions.map(session => (
                     <div key={session.id} className="bg-[#0f172a]/80 border border-cyan-900/30 rounded p-3 hover:border-cyan-400/50 transition-all group shadow-sm hover:shadow-[0_0_15px_rgba(0,255,255,0.1)] relative overflow-hidden backdrop-blur-sm">
-                        {/* Frost effect corner */}
                         <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-bl from-cyan-500/10 to-transparent pointer-events-none"></div>
 
                         <div className="flex justify-between items-start mb-2 relative z-10">

@@ -1,38 +1,61 @@
 import React, { useState, useEffect } from 'react';
-import { toast } from 'sonner';
+import type { Profile, InventoryItem, ShopItem, ActiveRaid, ThemeType, ConfettiStyle } from '../types';
 import { playSound } from '../utils/soundfx';
 
-const Shop = ({ profile, updateProfile, setTheme, setAvatar, setConfetti, soundEnabled, inventory, updateInventory, setActiveRaid, setActiveTab, currentTheme, currentAvatar, currentConfetti }) => {
-    const [shopTab, setShopTab] = useState('merchant'); // 'merchant' | 'inventory'
-    const [items, setItems] = useState([
+interface ShopProps {
+    profile: Profile;
+    updateProfile: (profile: Profile) => void;
+    setTheme: (theme: ThemeType) => void;
+    setAvatar: (avatar: string) => void;
+    setConfetti: (style: ConfettiStyle) => void;
+    soundEnabled: boolean;
+    inventory: InventoryItem[];
+    updateInventory: (inventory: InventoryItem[]) => void;
+    setActiveRaid: (raid: ActiveRaid | null) => void;
+    setActiveTab: (tab: string) => void;
+    currentTheme: ThemeType;
+    currentAvatar: string;
+    currentConfetti: ConfettiStyle;
+}
+
+const Shop: React.FC<ShopProps> = ({
+    profile,
+    updateProfile,
+    setTheme,
+    setAvatar,
+    setConfetti,
+    soundEnabled,
+    inventory,
+    updateInventory,
+    setActiveRaid,
+    setActiveTab,
+    currentTheme,
+    currentAvatar,
+    currentConfetti
+}) => {
+    const [shopTab, setShopTab] = useState<'merchant' | 'inventory'>('merchant');
+    const [items, setItems] = useState<ShopItem[]>([
         { id: 'theme_default', name: 'Standard Gear', price: 0, type: 'theme', value: 'default', purchased: true },
         { id: 'theme_cyber', name: 'Cyberpunk Neon', price: 100, type: 'theme', value: 'cyber', purchased: false },
         { id: 'theme_forest', name: 'Elven Forest', price: 150, type: 'theme', value: 'forest', purchased: false },
         { id: 'theme_royal', name: 'Royal Guard', price: 300, type: 'theme', value: 'royal', purchased: false },
-
-        // Avatars
         { id: 'av_wizard', name: 'Wizard', price: 0, type: 'avatar', value: '🧙‍♂️', purchased: true },
         { id: 'av_elf', name: 'Elf', price: 50, type: 'avatar', value: '🧝‍♀️', purchased: false },
         { id: 'av_robot', name: 'Droid', price: 80, type: 'avatar', value: '🤖', purchased: false },
         { id: 'av_skeleton', name: 'Undead', price: 120, type: 'avatar', value: '💀', purchased: false },
-
-        // Confetti
         { id: 'cf_default', name: 'Paper Scraps', price: 0, type: 'confetti', value: 'default', purchased: true },
         { id: 'cf_fire', name: 'Fireball', price: 200, type: 'confetti', value: 'fire', purchased: false },
         { id: 'cf_ice', name: 'Ice Shards', price: 200, type: 'confetti', value: 'ice', purchased: false },
-
-        // Consumables
         { id: 'mystery_key', name: 'Mystery Key', price: 500, type: 'consumable', value: 'key', description: 'Unlocks Ancient Gates', purchased: false },
         { id: 'potion_focus', name: 'Potion of Focus', price: 50, type: 'consumable', value: 'potion', description: 'Boosts concentration music', purchased: false },
         { id: 'scroll_reschedule', name: 'Time Scroll', price: 100, type: 'consumable', value: 'scroll', description: 'Manipulate quest time', purchased: false },
     ]);
 
     useEffect(() => {
-        // Load purchased items from storage
         if (chrome?.storage?.local) {
             chrome.storage.local.get(['purchasedItems'], (res) => {
                 if (res.purchasedItems) {
-                    const purchasedIds = new Set(res.purchasedItems);
+                    const purchasedIds = new Set(res.purchasedItems as string[]);
                     setItems(prev => prev.map(item => ({
                         ...item,
                         purchased: item.type !== 'consumable' && (item.price === 0 || purchasedIds.has(item.id))
@@ -42,7 +65,7 @@ const Shop = ({ profile, updateProfile, setTheme, setAvatar, setConfetti, soundE
         } else {
             const saved = localStorage.getItem('purchasedItems');
             if (saved) {
-                const purchasedIds = new Set(JSON.parse(saved));
+                const purchasedIds = new Set(JSON.parse(saved) as string[]);
                 setItems(prev => prev.map(item => ({
                     ...item,
                     purchased: item.type !== 'consumable' && (item.price === 0 || purchasedIds.has(item.id))
@@ -51,8 +74,7 @@ const Shop = ({ profile, updateProfile, setTheme, setAvatar, setConfetti, soundE
         }
     }, []);
 
-    // Helper: Calculate Price with Discount
-    const getPrice = (basePrice) => {
+    const getPrice = (basePrice: number): number => {
         const unlockedSkills = new Set(profile.unlockedSkills || []);
         if (unlockedSkills.has('goblin_negotiator') && basePrice > 0) {
             return Math.floor(basePrice * 0.9);
@@ -60,12 +82,11 @@ const Shop = ({ profile, updateProfile, setTheme, setAvatar, setConfetti, soundE
         return basePrice;
     };
 
-    const buyItem = (item) => {
-        // Cosmetic Equip Logic
+    const buyItem = (item: ShopItem) => {
         if (item.type !== 'consumable' && item.purchased) {
-            if (item.type === 'theme') setTheme(item.value);
+            if (item.type === 'theme') setTheme(item.value as ThemeType);
             if (item.type === 'avatar') setAvatar(item.value);
-            if (item.type === 'confetti') setConfetti(item.value);
+            if (item.type === 'confetti') setConfetti(item.value as ConfettiStyle);
             playSound.click();
             return;
         }
@@ -76,7 +97,6 @@ const Shop = ({ profile, updateProfile, setTheme, setAvatar, setConfetti, soundE
             if (confirm(`Purchase ${item.name} for ${finalPrice} Gold?`)) {
                 playSound.coin();
 
-                // Deduct Gold & Update Stats
                 const newGold = profile.gold - finalPrice;
                 const currentStats = profile.stats || {};
 
@@ -89,12 +109,10 @@ const Shop = ({ profile, updateProfile, setTheme, setAvatar, setConfetti, soundE
                     }
                 });
 
-                // Handle Item Type
                 if (item.type === 'consumable') {
-                    // Update Inventory
                     const currentInventory = inventory || [];
                     const existingItem = currentInventory.find(i => i.id === item.id);
-                    let newInventory;
+                    let newInventory: InventoryItem[];
 
                     if (existingItem) {
                         newInventory = currentInventory.map(i =>
@@ -105,18 +123,15 @@ const Shop = ({ profile, updateProfile, setTheme, setAvatar, setConfetti, soundE
                             id: item.id,
                             name: item.name,
                             type: item.type,
-                            description: item.description,
+                            description: item.description || '',
                             count: 1
                         }];
                     }
                     updateInventory(newInventory);
-                    toast.success(`Purchased ${item.name}! Added to Backpack.`);
                 } else {
-                    // Purchase Cosmetic
                     const updatedItems = items.map(i => i.id === item.id ? { ...i, purchased: true } : i);
                     setItems(updatedItems);
 
-                    // Save Purchased State
                     const purchasedIds = updatedItems.filter(i => i.purchased).map(i => i.id);
                     if (chrome?.storage?.local) {
                         chrome.storage.local.set({ purchasedItems: purchasedIds });
@@ -124,21 +139,17 @@ const Shop = ({ profile, updateProfile, setTheme, setAvatar, setConfetti, soundE
                         localStorage.setItem('purchasedItems', JSON.stringify(purchasedIds));
                     }
 
-                    // Auto-equip
-                    if (item.type === 'theme') setTheme(item.value);
+                    if (item.type === 'theme') setTheme(item.value as ThemeType);
                     if (item.type === 'avatar') setAvatar(item.value);
-                    if (item.type === 'confetti') setConfetti(item.value);
-                    toast.success(`Purchased ${item.name}!`);
+                    if (item.type === 'confetti') setConfetti(item.value as ConfettiStyle);
                 }
             }
         } else {
             if (soundEnabled) playSound.error();
-            toast.error("Not enough Gold, adventurer!");
         }
     };
 
-    const useItem = (item) => {
-        // Basic Consumption Logic
+    const useItem = (item: InventoryItem) => {
         if (item.count <= 0) return;
 
         let consumed = false;
@@ -146,24 +157,20 @@ const Shop = ({ profile, updateProfile, setTheme, setAvatar, setConfetti, soundE
         if (item.id === 'potion_focus') {
             if (confirm("Drink Potion of Focus? (Starts 25m Focus Music)")) {
                 consumed = true;
-                // TODO: Trigger actual Focus Mode / Timer
-                toast.success("Potion consumed! Focus Mode Activated! 🧠⚡");
-                if (soundEnabled) playSound.heal(); // Reuse heal sound or similar
-                window.open('https://www.youtube.com/watch?v=jfKfPfyJRdk', '_blank'); // Lo-fi Beats
+                if (soundEnabled) playSound.heal();
+                window.open('https://www.youtube.com/watch?v=jfKfPfyJRdk', '_blank');
             }
         } else if (item.id === 'scroll_reschedule') {
             alert("Scroll of Reschedule usage: Go to Quests -> Edit Quest -> Use Scroll to change date!");
-            // Actual implementation would be in Quests component or a global modal context
         } else if (item.id === 'mystery_key') {
             if (confirm("The key vibrates violently... Do you trigger the Ancient Portal? (Starts Special Raid)")) {
                 consumed = true;
 
-                // Create Special Raid
-                const specialRaid = {
+                const specialRaid: ActiveRaid = {
                     id: Date.now(),
                     name: "The Golden Dragon",
-                    bossId: "dragon_gold", // Need to handle this visual in RaidBoss
-                    maxHp: 100, // Epik
+                    bossId: "dragon_gold",
+                    maxHp: 100,
                     currentHp: 100,
                     tasks: [],
                     rewards: { gold: 1000, xp: 500 },
@@ -171,17 +178,7 @@ const Shop = ({ profile, updateProfile, setTheme, setAvatar, setConfetti, soundE
                 };
 
                 setActiveRaid(specialRaid);
-                toast.custom((t) => (
-                    <div className="bg-[#1a0f0f] border-2 border-[#d4af37] text-[#ffd700] p-4 rounded-lg flex items-center gap-4 animate-bounce-slow" onClick={() => setActiveTab('raids')}>
-                        <div className="text-4xl">🐲</div>
-                        <div>
-                            <div className="font-bold text-lg uppercase tracking-widest">GATE OPENED!</div>
-                            <div className="text-yellow-200 text-sm">The Golden Dragon awaits...</div>
-                        </div>
-                    </div>
-                ), { duration: 5000 });
-
-                if (soundEnabled) playSound.bossDie(); // Epic sound
+                if (soundEnabled) playSound.bossDie();
                 setActiveTab('raids');
             }
         }
@@ -194,7 +191,7 @@ const Shop = ({ profile, updateProfile, setTheme, setAvatar, setConfetti, soundE
         }
     };
 
-    const isEquipped = (item) => {
+    const isEquipped = (item: ShopItem): boolean => {
         if (item.type === 'theme') return currentTheme === item.value;
         if (item.type === 'avatar') return currentAvatar === item.value;
         if (item.type === 'confetti') return currentConfetti === item.value;
@@ -217,7 +214,6 @@ const Shop = ({ profile, updateProfile, setTheme, setAvatar, setConfetti, soundE
                 </div>
             </h2>
 
-            {/* Shop Tabs */}
             <div className="flex gap-2 mb-4 bg-[#0f0a0a] p-1 rounded-lg border border-[#333]">
                 <button
                     onClick={() => setShopTab('merchant')}
@@ -239,7 +235,6 @@ const Shop = ({ profile, updateProfile, setTheme, setAvatar, setConfetti, soundE
                         const equipped = isEquipped(item);
                         return (
                             <div key={item.id} className={`bg-[#1a0f0f] border-2 rounded-sm p-3 flex flex-col items-center text-center transition-all relative group shadow-[0_4px_6px_rgba(0,0,0,0.3)] ${equipped ? 'border-green-500 shadow-[0_0_15px_rgba(34,197,94,0.3)]' : 'border-[#5c4033] hover:border-[#d4af37]'}`}>
-                                {/* Card Texture */}
                                 <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/dark-wood.png')] opacity-10 pointer-events-none"></div>
 
                                 {equipped && (

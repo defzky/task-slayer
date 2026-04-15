@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { toast } from 'sonner';
 import confetti from 'canvas-confetti';
+import type { Profile, Quest, Subtask, InventoryItem } from '../types';
 import { playSound } from '../utils/soundfx';
+import QuickDateSelector from './QuickDateSelector';
 import {
     DndContext,
     closestCenter,
@@ -18,10 +19,13 @@ import {
     useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import QuickDateSelector from './QuickDateSelector';
 
-// Sortable Item Component
-const SortableQuestItem = ({ quest, children }) => {
+interface SortableQuestItemProps {
+    quest: Quest;
+    children: React.ReactNode;
+}
+
+const SortableQuestItem: React.FC<SortableQuestItemProps> = ({ quest, children }) => {
     const {
         attributes,
         listeners,
@@ -42,15 +46,32 @@ const SortableQuestItem = ({ quest, children }) => {
     );
 };
 
-const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled, inventory, updateInventory }) => {
-    // profile is now a prop
-    const [quests, setQuests] = useState([]);
+interface QuestsProps {
+    profile: Profile;
+    updateProfile: (profile: Profile) => void;
+    avatar: string;
+    confettiStyle: string;
+    soundEnabled: boolean;
+    inventory: InventoryItem[];
+    updateInventory: (inventory: InventoryItem[]) => void;
+}
+
+const Quests: React.FC<QuestsProps> = ({
+    profile,
+    updateProfile,
+    avatar,
+    confettiStyle,
+    soundEnabled,
+    inventory,
+    updateInventory
+}) => {
+    const [quests, setQuests] = useState<Quest[]>([]);
     const [newQuestTitle, setNewQuestTitle] = useState('');
-    const [newQuestDeadline, setNewQuestDeadline] = useState('');
+    const [newQuestDeadline, setNewQuestDeadline] = useState<string | null>('');
     const [isBossMode, setIsBossMode] = useState(false);
     const [streak, setStreak] = useState(0);
-    const [questTab, setQuestTab] = useState('active'); // 'active' | 'completed' | 'failed'
-    const [editingQuest, setEditingQuest] = useState(null); // { id, title, deadline } for modal
+    const [questTab, setQuestTab] = useState<'active' | 'completed' | 'failed'>('active');
+    const [editingQuest, setEditingQuest] = useState<Quest | null>(null);
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
@@ -63,17 +84,13 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled, i
         })
     );
 
-    // Load data on mount
     useEffect(() => {
-        const loadData = (result) => {
-            // Profile is handled by parent App.jsx
-            if (result.quests) setQuests(result.quests);
+        const loadData = (result: Record<string, unknown>) => {
+            if (result.quests) setQuests(result.quests as Quest[]);
 
-            // Daily Streak Logic
             const today = new Date().toDateString();
-            const lastLogin = result.lastLoginDate;
-            let currentStreak = result.dailyStreak || 0;
-            let streakBonus = false;
+            const lastLogin = result.lastLoginDate as string | undefined;
+            let currentStreak = (result.dailyStreak as number) || 0;
 
             if (lastLogin !== today) {
                 const yesterday = new Date();
@@ -81,12 +98,10 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled, i
 
                 if (lastLogin === yesterday.toDateString()) {
                     currentStreak += 1;
-                    streakBonus = true; // Flag to show user they kept the streak
                 } else {
-                    currentStreak = 1; // Reset or Start new
+                    currentStreak = 1;
                 }
 
-                // Save new streak data
                 const updates = { lastLoginDate: today, dailyStreak: currentStreak };
                 if (chrome?.storage?.sync) {
                     chrome.storage.sync.set(updates);
@@ -94,14 +109,7 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled, i
                     chrome.storage.local.set(updates);
                 } else {
                     localStorage.setItem('lastLoginDate', today);
-                    localStorage.setItem('dailyStreak', currentStreak);
-                }
-
-                // Bonus XP for logging in (if maintained streak)
-                if (streakBonus) {
-                    // We'll handle XP update via existing profile state update mechanism if needed, 
-                    // but for simplicity let's just show it in UI for now
-                    console.log("Streak kept! +10 XP potentially");
+                    localStorage.setItem('dailyStreak', String(currentStreak));
                 }
             }
             setStreak(currentStreak);
@@ -110,13 +118,12 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled, i
         if (chrome?.storage?.sync) {
             chrome.storage.sync.get(['quests', 'dailyStreak', 'lastLoginDate'], (syncRes) => {
                 if (Object.keys(syncRes).length > 0) {
-                    loadData(syncRes);
+                    loadData(syncRes as Record<string, unknown>);
                 } else {
-                    // Try Local (Migration)
                     chrome.storage.local.get(['quests', 'dailyStreak', 'lastLoginDate'], (localRes) => {
                         if (Object.keys(localRes).length > 0) {
-                            loadData(localRes);
-                            chrome.storage.sync.set(localRes); // Migrate
+                            loadData(localRes as Record<string, unknown>);
+                            chrome.storage.sync.set(localRes);
                         } else {
                             loadData({});
                         }
@@ -124,16 +131,15 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled, i
                 }
             });
         } else if (chrome?.storage?.local) {
-            chrome.storage.local.get(['rpgProfile', 'quests', 'dailyStreak', 'lastLoginDate'], loadData);
+            chrome.storage.local.get(['rpgProfile', 'quests', 'dailyStreak', 'lastLoginDate'], (localRes) => {
+                loadData(localRes as Record<string, unknown>);
+            });
         } else {
-            // Mock for local dev
-            const savedProfile = localStorage.getItem('rpgProfile');
             const savedQuests = localStorage.getItem('quests');
-            const dailyStreak = localStorage.getItem('dailyStreak') ? parseInt(localStorage.getItem('dailyStreak')) : 0;
+            const dailyStreak = localStorage.getItem('dailyStreak') ? parseInt(localStorage.getItem('dailyStreak')!) : 0;
             const lastLoginDate = localStorage.getItem('lastLoginDate');
 
             loadData({
-                rpgProfile: savedProfile ? JSON.parse(savedProfile) : null,
                 quests: savedQuests ? JSON.parse(savedQuests) : null,
                 dailyStreak,
                 lastLoginDate
@@ -141,11 +147,11 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled, i
         }
     }, []);
 
-    const saveState = (newProfile, newQuests) => {
-        if (newProfile) updateProfile(newProfile); // Use prop
+    const saveState = (newProfile: Profile | null, newQuests: Quest[] | null) => {
+        if (newProfile) updateProfile(newProfile);
         if (newQuests) setQuests(newQuests);
 
-        const data = {};
+        const data: Record<string, unknown> = {};
         if (newQuests) data.quests = newQuests;
 
         if (chrome?.storage?.sync) {
@@ -157,28 +163,27 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled, i
         }
     };
 
-    const handleDragEnd = (event) => {
+    const handleDragEnd = (event: { active: { id: unknown }; over: { id: unknown } | null }) => {
         const { active, over } = event;
 
-        if (active.id !== over.id) {
+        if (over && active.id !== over.id) {
             const oldIndex = quests.findIndex((q) => q.id === active.id);
             const newIndex = quests.findIndex((q) => q.id === over.id);
             const newQuests = arrayMove(quests, oldIndex, newIndex);
-            // Optimistic update
             setQuests(newQuests);
             saveState(null, newQuests);
         }
     };
 
-    const addQuest = (e) => {
+    const addQuest = (e: React.FormEvent) => {
         e.preventDefault();
         if (!newQuestTitle.trim()) return;
 
-        const newQuest = {
+        const newQuest: Quest = {
             id: Date.now(),
             title: newQuestTitle,
             type: isBossMode ? 'boss' : 'normal',
-            xpReward: isBossMode ? 500 : Math.floor(Math.random() * 30) + 20, // Huge XP for Boss
+            xpReward: isBossMode ? 500 : Math.floor(Math.random() * 30) + 20,
             hp: isBossMode ? 100 : 0,
             maxHp: isBossMode ? 100 : 0,
             deadline: newQuestDeadline ? new Date(newQuestDeadline).toISOString() : null,
@@ -194,12 +199,11 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled, i
         setIsBossMode(false);
     };
 
-    const addSubtask = (questId, taskTitle) => {
+    const addSubtask = (questId: number, taskTitle: string) => {
         if (!taskTitle.trim()) return;
         const updatedQuests = quests.map(q => {
             if (q.id === questId) {
-                const newSubtasks = [...(q.subtasks || []), { id: Date.now(), title: taskTitle, completed: false }];
-                // Recalculate HP if it's a boss
+                const newSubtasks: Subtask[] = [...(q.subtasks || []), { id: Date.now(), title: taskTitle, completed: false }];
                 let newHp = q.hp;
                 if (q.type === 'boss') {
                     const total = newSubtasks.length;
@@ -218,24 +222,20 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled, i
         saveState(null, updatedQuests);
     };
 
-    const completeSubtask = (questId, subtaskId) => {
+    const completeSubtask = (questId: number, subtaskId: number) => {
         const quest = quests.find(q => q.id === questId);
         if (!quest) return;
 
-        // Update Subtasks First
         const updatedSubtasks = quest.subtasks.map(t =>
             t.id === subtaskId ? { ...t, completed: true } : t
         );
 
-        // Recalculate Boss HP (Percentage based)
         let newHp = quest.hp;
         let isBossDeath = false;
 
         if (quest.type === 'boss') {
             const total = updatedSubtasks.length;
             const completedCount = updatedSubtasks.filter(t => t.completed).length;
-            // HP is percentage of remaining tasks
-            // If total is 5, completed 1. Remaining 4. HP = 80%.
             newHp = total > 0 ? Math.floor(((total - completedCount) / total) * 100) : 0;
 
             if (soundEnabled) playSound.bossHit();
@@ -243,14 +243,9 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled, i
             if (newHp === 0 && !quest.completed) {
                 isBossDeath = true;
             }
-        } else {
-            // Normal quest subtask logic (if any)
-            // Currently normal quests don't really use HP/subtasks prominently, but safe to keep basic
         }
 
         if (isBossDeath) {
-            // Trigger Boss Defeat Logic (Complete Quest)
-            // We pass the updated subtasks to ensure they are saved as completed
             completeQuest(questId, true, updatedSubtasks);
         } else {
             const updatedQuests = quests.map(q =>
@@ -261,25 +256,23 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled, i
         }
     };
 
-    const completeQuest = (id, isBossKill = false, forcedSubtasks = null) => {
+    const completeQuest = (id: number, isBossKill = false, forcedSubtasks: Subtask[] | null = null) => {
         const quest = quests.find(q => q.id === id);
         if (!quest || quest.completed) return;
 
-        // Trigger Sound & Visuals
         if (isBossKill) {
-            if (soundEnabled) playSound.bossDefeat(); // Epic sound for Boss Kill
+            if (soundEnabled) playSound.bossDefeat();
             confetti({ particleCount: 500, spread: 200, colors: ['#FFD700', '#FF0000'] });
         } else {
             playSound.coin();
-            // ... (Existing confetti logic) ...
             let confettiColors = ['#d4af37', '#e0e0e0', '#ff0000'];
-            let confettiShapes = ['circle', 'square'];
+            let confettiShapes: confetti.Shape[] = ['circle', 'square'];
 
             if (confettiStyle === 'fire') {
                 confettiColors = ['#ff0000', '#ff4500', '#ffa500'];
             } else if (confettiStyle === 'ice') {
                 confettiColors = ['#00ffff', '#e0ffff', '#0000ff'];
-                confettiShapes = ['circle']; // Snow-ish
+                confettiShapes = ['circle'];
             }
 
             confetti({
@@ -291,51 +284,34 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled, i
             });
         }
 
-        // --- ITEM DROP LOGIC ---
-        const dropChance = isBossMode ? 0.6 : 0.15; // 60% for Boss, 15% for Normal
+        const dropChance = isBossMode ? 0.6 : 0.15;
         if (Math.random() < dropChance) {
-            // Drop Table
             const items = [
                 { id: 'potion_focus', name: 'Potion of Focus', type: 'consumable', description: '25m Focus Music + Blocker' },
                 { id: 'scroll_reschedule', name: 'Scroll of Reschedule', type: 'consumable', description: 'change deadline w/o penalty' },
-                // Rare
                 { id: 'mystery_key', name: 'Mystery Key', type: 'artifact', description: 'Opens future dungeons', weight: 0.1 }
             ];
 
-            // Simple random pick for now
             const roll = Math.random();
-            let droppedItem;
-            if (roll > 0.9) droppedItem = items[2]; // Key (Rare)
-            else if (roll > 0.5) droppedItem = items[1]; // Scroll
-            else droppedItem = items[0]; // Potion
+            let droppedItem = items[0];
+            if (roll > 0.9) droppedItem = items[2];
+            else if (roll > 0.5) droppedItem = items[1];
+            else droppedItem = items[0];
 
-            // Add to Inventory
             const currentInv = inventory || [];
             const existingItemIndex = currentInv.findIndex(i => i.id === droppedItem.id);
-            let newInventory;
+            let newInventory: InventoryItem[];
 
             if (existingItemIndex >= 0) {
                 newInventory = [...currentInv];
                 newInventory[existingItemIndex].count += 1;
             } else {
-                newInventory = [...currentInv, { ...droppedItem, count: 1 }];
+                newInventory = [...currentInv, { ...droppedItem, count: 1 } as InventoryItem];
             }
 
             updateInventory(newInventory);
-
-            // Toast Notification
-            setTimeout(() => {
-                toast.success(
-                    <div className="flex flex-col">
-                        <span className="font-bold text-[#ffd700]">🎁 ITEM DROP!</span>
-                        <span>You found: {droppedItem.name}</span>
-                    </div>,
-                    { duration: 4000 }
-                );
-            }, 1000);
         }
 
-        // Calculate Bonuses from Class
         let xpBonusMult = 1;
         let goldBonusMult = 1;
         const userClass = profile.userClass || 'Novice';
@@ -344,27 +320,18 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled, i
         if (userClass === 'Pixel Rogue') goldBonusMult = 1.2;
         if (userClass === 'Logic Wizard') { xpBonusMult = 1.05; goldBonusMult = 1.05; }
 
-        // --- PASSIVE SKILL BONUSES ---
         const unlockedSkills = new Set(profile.unlockedSkills || []);
         if (unlockedSkills.has('novice_looter')) goldBonusMult += 0.05;
         if (unlockedSkills.has('midas_touch')) goldBonusMult += 0.15;
         if (unlockedSkills.has('fast_learner')) xpBonusMult += 0.05;
 
-        // --- CRITICAL MIND (Double Rewards) ---
         let isCritical = false;
         if (unlockedSkills.has('critical_mind') && Math.random() < 0.1) {
             isCritical = true;
             xpBonusMult *= 2;
             goldBonusMult *= 2;
-
-            // Critical Toast
-            setTimeout(() => {
-                toast.success("⚡ CRITICAL REWARD! x2 XP & GOLD! ⚡");
-                playSound.bossHit(); // Impact sound
-            }, 1500);
         }
 
-        // Calculate new XP & Gold
         const baseGold = isBossKill ? 100 : (Math.floor(Math.random() * 15) + 5);
         const earnedGold = Math.ceil(baseGold * goldBonusMult);
         const earnedXp = Math.ceil(quest.xpReward * xpBonusMult);
@@ -375,16 +342,14 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled, i
         let newMaxXp = profile.maxXp;
         let newSkillPoints = profile.skillPoints || 0;
 
-        // Level Up Logic
         if (newXp >= profile.maxXp) {
             newLevel += 1;
-            newSkillPoints += 1; // Award 1 SP per level
-            newXp = newXp - profile.maxXp; // Carry over excess XP
-            newMaxXp = Math.floor(newMaxXp * 1.5); // Increase requirement by 50%
+            newSkillPoints += 1;
+            newXp = newXp - profile.maxXp;
+            newMaxXp = Math.floor(newMaxXp * 1.5);
 
-            if (soundEnabled) playSound.levelUp(); // LEVEL UP SOUND
+            if (soundEnabled) playSound.levelUp();
 
-            // Bigger confetti for Level UP (only if not boss kill already did it)
             if (!isBossKill) {
                 setTimeout(() => {
                     confetti({
@@ -394,11 +359,8 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled, i
                     });
                 }, 500);
             }
-
-            toast.success(`Leveled Up! +1 Skill Point!`);
         }
 
-        // --- STATS UPDATE ---
         const currentStats = profile.stats || {};
         const newStats = {
             ...currentStats,
@@ -407,7 +369,7 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled, i
             totalGoldEarned: (currentStats.totalGoldEarned || 0) + earnedGold
         };
 
-        const updatedProfile = {
+        const updatedProfile: Profile = {
             level: newLevel,
             xp: newXp,
             maxXp: newMaxXp,
@@ -416,12 +378,11 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled, i
             skillPoints: newSkillPoints,
             unlockedSkills: profile.unlockedSkills || [],
             stats: newStats,
-            unlockedAchievements: profile.unlockedAchievements || []
+            unlockedAchievements: profile.unlockedAchievements || [],
+            streak: profile.streak,
+            lastLoginDate: profile.lastLoginDate
         };
 
-        // Update Quest Status
-        // If Boss, ensure HP is 0 and subtasks marked? 
-        // For simplicity, just mark completed.
         const updatedQuests = quests.map(q =>
             q.id === id ? {
                 ...q,
@@ -431,13 +392,10 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled, i
             } : q
         );
 
-        // Remove completed quest after short delay (optional, or keep in "Completed" tab)
-        // For now, let's keep them but visually dimmed
-
         saveState(updatedProfile, updatedQuests);
     };
 
-    const deleteQuest = (id) => {
+    const deleteQuest = (id: number) => {
         if (window.confirm("Are you sure you want to abandon this quest?")) {
             const updatedQuests = quests.filter(q => q.id !== id);
             setQuests(updatedQuests);
@@ -445,36 +403,28 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled, i
         }
     };
 
-    const startEditing = (quest) => {
+    const startEditing = (quest: Quest) => {
         setEditingQuest({ ...quest });
     };
 
-    const saveEditedQuest = (e) => {
+    const saveEditedQuest = (e: React.FormEvent) => {
         e.preventDefault();
         if (!editingQuest) return;
 
         const originalQuest = quests.find(q => q.id === editingQuest.id);
-        const deadlineChanged = originalQuest.deadline !== editingQuest.deadline;
+        const deadlineChanged = originalQuest?.deadline !== editingQuest.deadline;
 
-        let scrollUsed = false;
-
-        // Logic: If deadline is extended (later than original), require scroll? 
-        // For now, simpler logic based on user request: "Use Scroll of Reschedule" check
-        if (deadlineChanged && originalQuest.deadline) {
+        if (deadlineChanged && originalQuest?.deadline) {
             const hasScroll = inventory?.find(i => i.id === 'scroll_reschedule' && i.count > 0);
             if (hasScroll) {
                 if (window.confirm("Use 'Scroll of Reschedule' to change the deadline without penalty?")) {
-                    // Consume Scroll
                     const newInventory = inventory.map(i =>
                         i.id === 'scroll_reschedule' ? { ...i, count: i.count - 1 } : i
                     ).filter(i => i.count > 0);
                     updateInventory(newInventory);
-                    scrollUsed = true;
-                    toast.success("Scroll used! Deadline updated peacefully. 📜");
                 }
-                // If cancel, we allow change but maybe warn about streak or just allow it for now.
             } else {
-                if (!window.confirm("You don't have a Scroll of Reschedule! Changing the deadline might upset the time gods (no actual penalty yet). Proceed?")) {
+                if (!window.confirm("You don't have a Scroll of Reschedule! Proceed?")) {
                     return;
                 }
             }
@@ -488,21 +438,16 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled, i
         setEditingQuest(null);
     };
 
-    // Helper: Is Expired?
-    const isExpired = (q) => q.deadline && new Date(q.deadline) < new Date() && !q.completed;
+    const isExpired = (q: Quest): boolean => q.deadline ? new Date(q.deadline) < new Date() && !q.completed : false;
 
-    // Filter active quests for DnD (and display logic)
-    // "Active" tab now excludes expired quests
     const visualActiveQuests = quests.filter(q => !q.completed && !isExpired(q));
     const visualCompletedQuests = quests.filter(q => q.completed);
     const visualFailedQuests = quests.filter(q => !q.completed && isExpired(q));
 
-    // For DnD, we only allow dragging in the Active tab for now to avoid complexity
     const dndItems = questTab === 'active' ? visualActiveQuests : [];
 
     return (
         <div className="h-full flex flex-col">
-            {/* Adventurer Profile Header */}
             <div className="bg-[#2a282a] p-4 rounded-lg border border-[#444] mb-4 flex items-center justify-between shadow-sm">
                 <div className="flex items-center gap-4">
                     <div className="w-12 h-12 bg-[#444] rounded-full flex items-center justify-center text-2xl border border-[#d4af37]">
@@ -531,7 +476,6 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled, i
                 </div>
             </div>
 
-            {/* Add New Quest */}
             {editingQuest ? (
                 <form onSubmit={saveEditedQuest} className="relative mb-4 bg-[#2a282a] p-3 rounded-lg border border-[#d4af37] animate-in fade-in slide-in-from-top-2">
                     <div className="flex justify-between items-center mb-2">
@@ -558,7 +502,6 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled, i
                 </form>
             ) : (
                 <form onSubmit={addQuest} className="relative mb-4 bg-[#1e1e1e] p-2 rounded-lg border border-[#333]">
-                    {/* ... Existing Add Form Content ... */}
                     <div className="flex gap-2 items-center mb-2">
                         <input
                             type="checkbox"
@@ -595,9 +538,6 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled, i
                 </form>
             )}
 
-
-
-            {/* Quest Tabs */}
             <div className="flex gap-1 mb-2">
                 <button
                     onClick={() => setQuestTab('active')}
@@ -619,10 +559,7 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled, i
                 </button>
             </div>
 
-            {/* Quest Board Board with Drag & Drop */}
             <div className="flex-1 overflow-y-auto space-y-3 pr-1 bg-[#151515] p-2 rounded-b rounded-tr border border-[#333] min-h-0">
-
-                {/* ACTIVE TAB */}
                 {questTab === 'active' && (
                     <>
                         {visualActiveQuests.length === 0 && (
@@ -642,14 +579,11 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled, i
                             >
                                 {visualActiveQuests.map(quest => (
                                     <SortableQuestItem key={quest.id} quest={quest}>
-                                        {/* Boss Card Design */}
                                         {quest.type === 'boss' ? (
                                             <div className="relative group">
-                                                {/* Animated Glow Background */}
                                                 <div className="absolute -inset-0.5 bg-gradient-to-r from-red-600 to-orange-600 rounded-lg blur opacity-40 group-hover:opacity-75 transition duration-1000 group-hover:duration-200 animate-pulse"></div>
 
                                                 <div className="relative bg-[#1a0f0f] border-2 border-red-900/50 rounded-lg p-4 shadow-[0_0_15px_rgba(220,20,60,0.2)]">
-                                                    {/* Header */}
                                                     <div className="flex items-start justify-between mb-4 border-b border-red-900/30 pb-2">
                                                         <div className="flex items-center gap-3">
                                                             <div className="bg-red-950/50 p-2 rounded-lg border border-red-800 text-2xl shadow-[0_0_10px_rgba(220,20,60,0.3)]">
@@ -664,26 +598,23 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled, i
                                                                 </div>
                                                             </div>
                                                         </div>
-                                                        <div className="text-red-500 cursor-pointer hover:text-red-300" onClick={(e) => { e.stopPropagation(); deleteQuest(quest.id); }}>
+                                                        <div className="text-red-500 cursor-pointer hover:text-red-300" onClick={() => deleteQuest(quest.id)}>
                                                             ✕
                                                         </div>
                                                     </div>
 
-                                                    {/* HP Bar */}
                                                     <div className="mb-4">
                                                         <div className="flex justify-between text-[10px] text-red-500 mb-1 font-bold tracking-widest uppercase">
                                                             <span>DANGER LEVEL</span>
                                                             <span>{quest.hp} / {quest.maxHp} HP</span>
                                                         </div>
                                                         <div className="h-4 bg-[#2a1010] rounded border border-red-900 overflow-hidden relative shadow-inner">
-                                                            {/* Health Fill */}
                                                             <div
                                                                 className="h-full bg-gradient-to-r from-red-900 via-red-600 to-orange-600 transition-all duration-300 relative"
                                                                 style={{ width: `${(quest.hp / quest.maxHp) * 100}%` }}
                                                             >
                                                                 <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/diagonal-stripes.png')] opacity-30"></div>
                                                             </div>
-                                                            {/* Segments (overlay) */}
                                                             <div className="absolute inset-0 flex">
                                                                 {[...Array(10)].map((_, i) => (
                                                                     <div key={i} className="flex-1 border-r border-[#1a0f0f]/30 last:border-0"></div>
@@ -692,18 +623,16 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled, i
                                                         </div>
                                                     </div>
 
-                                                    {/* Minions (Subtasks) Grid */}
                                                     <div className="space-y-2">
                                                         <div className="text-[10px] text-red-500/50 uppercase font-bold tracking-widest mb-1">Minions (Subtasks)</div>
                                                         <div className="grid grid-cols-1 gap-2">
                                                             {quest.subtasks?.map(sub => (
                                                                 !sub.completed && (
                                                                     <div key={sub.id} className="group/minion flex items-center gap-3 bg-[#2a1010]/50 border border-red-900/30 p-2 rounded hover:bg-red-900/20 transition-all relative overflow-hidden">
-                                                                        {/* Selection Indicator */}
                                                                         <div className="absolute left-0 top-0 bottom-0 w-1 bg-red-600 opacity-0 group-hover/minion:opacity-100 transition-opacity"></div>
 
                                                                         <button
-                                                                            onClick={(e) => { e.stopPropagation(); completeSubtask(quest.id, sub.id); }}
+                                                                            onClick={() => completeSubtask(quest.id, sub.id)}
                                                                             onPointerDown={(e) => e.stopPropagation()}
                                                                             className="w-5 h-5 rounded border border-red-500 hover:bg-red-600 flex items-center justify-center text-[10px] transition-colors shadow-[0_0_5px_rgba(220,20,60,0.4)]"
                                                                         >
@@ -715,7 +644,6 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled, i
                                                             ))}
                                                         </div>
 
-                                                        {/* Add Minion Input */}
                                                         <div className="mt-2 relative">
                                                             <input
                                                                 type="text"
@@ -723,7 +651,7 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled, i
                                                                 className="w-full bg-[#1a0f0f] border border-red-900/30 text-xs py-2 px-3 rounded text-red-200 placeholder-red-900/50 focus:outline-none focus:border-red-600 focus:shadow-[0_0_10px_rgba(220,20,60,0.2)] transition-all font-mono"
                                                                 onKeyDown={(e) => {
                                                                     if (e.key === ' ') { e.stopPropagation(); }
-                                                                    if (e.key === 'Enter') {
+                                                                    if (e.key === 'Enter' && e.currentTarget.value) {
                                                                         addSubtask(quest.id, e.currentTarget.value);
                                                                         e.currentTarget.value = '';
                                                                     }
@@ -735,11 +663,8 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled, i
                                                 </div>
                                             </div>
                                         ) : (
-                                            /* Standard Quest Card (Active) */
                                             <div className="bg-[#1a181a] border border-[#444] border-l-4 border-l-[#d4af37] rounded-r-lg p-4 transition-all relative mb-3 group shadow-[0_2px_5px_rgba(0,0,0,0.3)] hover:shadow-[0_0_15px_rgba(212,175,55,0.1)] overflow-hidden">
-                                                {/* Card Texture */}
                                                 <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/dark-leather.png')] opacity-30 pointer-events-none"></div>
-
 
                                                 <div className="flex justify-between items-start">
                                                     <div className="flex-1 cursor-grab active:cursor-grabbing">
@@ -751,7 +676,6 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled, i
                                                             {quest.deadline && (
                                                                 <span className={`flex items-center gap-1 ${new Date(quest.deadline) < new Date() ? 'text-red-500 font-bold animate-pulse' : 'text-gray-400'}`}>
                                                                     ⏰ {new Date(quest.deadline).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                                                                    {new Date(quest.deadline) < new Date() && ' (OVERDUE!)'}
                                                                 </span>
                                                             )}
                                                         </div>
@@ -759,27 +683,24 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled, i
 
                                                     <div className="flex items-center gap-3 pl-2">
                                                         <button
-                                                            onClick={(e) => { e.stopPropagation(); completeQuest(quest.id); }}
+                                                            onClick={() => completeQuest(quest.id)}
                                                             onPointerDown={(e) => e.stopPropagation()}
                                                             className="bg-[#1e1e1e] hover:bg-[#d4af37] hover:text-black border border-[#d4af37] text-[#d4af37] rounded-full w-10 h-10 flex items-center justify-center transition-all shadow-[0_0_5px_rgba(212,175,55,0.2)] text-lg"
-                                                            title="Complete Quest"
                                                         >
                                                             ✔
                                                         </button>
                                                         <div className="flex flex-col gap-1">
                                                             <button
-                                                                onClick={(e) => { e.stopPropagation(); startEditing(quest); }}
+                                                                onClick={() => startEditing(quest)}
                                                                 onPointerDown={(e) => e.stopPropagation()}
                                                                 className="text-gray-500 hover:text-[#d4af37] text-xs px-2"
-                                                                title="Edit Quest"
                                                             >
                                                                 ✏️
                                                             </button>
                                                             <button
-                                                                onClick={(e) => { e.stopPropagation(); deleteQuest(quest.id); }}
+                                                                onClick={() => deleteQuest(quest.id)}
                                                                 onPointerDown={(e) => e.stopPropagation()}
                                                                 className="text-gray-500 hover:text-red-400 text-xs px-2"
-                                                                title="Abandon Quest"
                                                             >
                                                                 ✕
                                                             </button>
@@ -795,7 +716,6 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled, i
                     </>
                 )}
 
-                {/* COMPLETED TAB */}
                 {questTab === 'completed' && (
                     <div className="animate-in fade-in">
                         {visualCompletedQuests.length === 0 && (
@@ -812,21 +732,11 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled, i
                                     </div>
                                     <button onClick={() => deleteQuest(quest.id)} className="text-gray-700 hover:text-red-500 text-sm">✕</button>
                                 </div>
-                                {quest.type === 'boss' && (
-                                    <div className="mt-2 pl-4 border-l-2 border-[#333]">
-                                        {quest.subtasks?.map(sub => (
-                                            <div key={sub.id} className="text-[10px] text-gray-600 line-through">
-                                                • {sub.title}
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
                             </div>
                         ))}
                     </div>
                 )}
 
-                {/* FAILED TAB */}
                 {questTab === 'failed' && (
                     <div className="animate-in fade-in">
                         {visualFailedQuests.length === 0 && (
@@ -842,14 +752,13 @@ const Quests = ({ profile, updateProfile, avatar, confettiStyle, soundEnabled, i
                                         <div className="text-red-800 font-bold text-sm tracking-widest uppercase">FAILED</div>
                                         <div className="text-gray-400 text-base font-serif italic mb-1">{quest.title}</div>
                                         <div className="text-red-500 text-xs font-mono">
-                                            Expired: {new Date(quest.deadline).toLocaleString()}
+                                            Expired: {quest.deadline && new Date(quest.deadline).toLocaleString()}
                                         </div>
                                     </div>
                                     <div className="flex flex-col gap-2">
                                         <button
                                             onClick={() => completeQuest(quest.id)}
                                             className="text-xs bg-[#1e1e1e] border border-gray-700 text-gray-500 hover:text-green-500 hover:border-green-500 px-2 py-1 rounded transition-colors"
-                                            title="Late Completion (Half Rewards?)"
                                         >
                                             Late Finish
                                         </button>

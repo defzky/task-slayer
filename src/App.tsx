@@ -11,13 +11,62 @@ import ClassSelector from './components/ClassSelector';
 import Settings from './components/Settings';
 import { playSound } from './utils/soundfx';
 
+interface Stats {
+  questsCompleted: number;
+  bossesDefeated: number;
+  totalGoldEarned: number;
+  notesCreated: number;
+  itemsBought: number;
+}
+
+interface Profile {
+  level: number;
+  xp: number;
+  maxXp: number;
+  gold: number;
+  userClass: string;
+  skillPoints: number;
+  unlockedSkills: string[];
+  stats: Stats;
+  unlockedAchievements: string[];
+  lastLoginDate?: string;
+  streak?: number;
+}
+
+interface InventoryItem {
+  id: string;
+  count: number;
+  name: string;
+  type: string;
+  description: string;
+}
+
+interface Raid {
+  id: string;
+  name: string;
+  bossId: string;
+  maxHp: number;
+  currentHp: number;
+  tasks: any[];
+}
+
+interface StorageResult {
+  rpgProfile?: Profile;
+  userTheme?: string;
+  userAvatar?: string;
+  userConfetti?: string;
+  soundEnabled?: boolean;
+  inventory?: InventoryItem[];
+  activeRaid?: Raid;
+}
+
 function App() {
-  const [activeTab, setActiveTab] = useState('notes');
-  const [theme, setTheme] = useState('default');
-  const [avatar, setAvatar] = useState('🧙‍♂️');
-  const [confettiStyle, setConfettiStyle] = useState('default');
-  const [soundEnabled, setSoundEnabled] = useState(true);
-  const [profile, setProfile] = useState({
+  const [activeTab, setActiveTab] = useState<string>('notes');
+  const [theme, setTheme] = useState<string>('default');
+  const [avatar, setAvatar] = useState<string>('🧙‍♂️');
+  const [confettiStyle, setConfettiStyle] = useState<string>('default');
+  const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
+  const [profile, setProfile] = useState<Profile>({
     level: 1,
     xp: 0,
     maxXp: 100,
@@ -28,13 +77,13 @@ function App() {
     stats: { questsCompleted: 0, bossesDefeated: 0, totalGoldEarned: 0, notesCreated: 0, itemsBought: 0 },
     unlockedAchievements: []
   });
-  const [inventory, setInventory] = useState([]); // [{id, count, name, type, description}]
-  const [activeRaid, setActiveRaid] = useState(null); // { id, name, bossId, maxHp, currentHp, tasks: [] }
-  const [showClassSelector, setShowClassSelector] = useState(false);
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [activeRaid, setActiveRaid] = useState<Raid | null>(null);
+  const [showClassSelector, setShowClassSelector] = useState<boolean>(false);
 
   // Load Profile & Theme on mount
   useEffect(() => {
-    const loadData = (result) => {
+    const loadData = (result: StorageResult) => {
       // 1. Determine Profile (Loaded or Default)
       let currentProfile = result.rpgProfile || {
         level: 1,
@@ -49,8 +98,6 @@ function App() {
       };
 
       // 2. Check Daily Login Reward
-      // We need to check if checkDailyLogin is available yet.
-      // Since effect runs after mount, it should be capable of calling the function defined in body.
       try {
         currentProfile = checkDailyLogin(currentProfile);
       } catch (e) {
@@ -58,7 +105,7 @@ function App() {
       }
 
       // 3. Update State
-      setProfile(currentProfile);
+      setProfile(currentProfile as Profile);
 
       // 4. Save Immediately (to persist lastLoginDate)
       if (chrome?.storage?.sync) {
@@ -82,13 +129,13 @@ function App() {
 
     if (chrome?.storage?.sync) {
       // Try to load from SYNC first
-      chrome.storage.sync.get(['rpgProfile', 'userTheme', 'userAvatar', 'userConfetti', 'soundEnabled', 'inventory', 'activeRaid'], (syncResult) => {
+      chrome.storage.sync.get(['rpgProfile', 'userTheme', 'userAvatar', 'userConfetti', 'soundEnabled', 'inventory', 'activeRaid'], (syncResult: StorageResult) => {
         if (Object.keys(syncResult).length > 0) {
           // Found data in sync
           loadData(syncResult);
         } else {
           // No data in sync, check LOCAL (Migration)
-          chrome.storage.local.get(['rpgProfile', 'userTheme', 'userAvatar', 'userConfetti', 'soundEnabled', 'inventory', 'activeRaid'], (localResult) => {
+          chrome.storage.local.get(['rpgProfile', 'userTheme', 'userAvatar', 'userConfetti', 'soundEnabled', 'inventory', 'activeRaid'], (localResult: StorageResult) => {
             if (Object.keys(localResult).length > 0) {
               console.log("Migrating data from Local to Cloud Sync...");
               loadData(localResult);
@@ -121,7 +168,7 @@ function App() {
     }
   }, []);
 
-  const handleUpdateRaid = (newRaid) => {
+  const handleUpdateRaid = (newRaid: Raid | null) => {
     setActiveRaid(newRaid);
     if (chrome?.storage?.sync) {
       chrome.storage.sync.set({ activeRaid: newRaid });
@@ -130,7 +177,7 @@ function App() {
     }
   };
 
-  const calculateLevelUp = (currentProfile) => {
+  const calculateLevelUp = (currentProfile: Profile): Profile & { _leveledUp?: boolean } => {
     let { level, xp, maxXp, skillPoints } = currentProfile;
     let leveledUp = false;
     let iterations = 0;
@@ -152,7 +199,7 @@ function App() {
     };
   };
 
-  const handleUpdateProfile = (profileToUpdate) => {
+  const handleUpdateProfile = (profileToUpdate: Profile) => {
     // 1. Calculate new stats safely
     const processedProfile = calculateLevelUp(profileToUpdate);
     const leveledUp = processedProfile._leveledUp;
@@ -203,7 +250,7 @@ function App() {
     }
 
     // 4. Update State & Storage
-    setProfile(processedProfile);
+    setProfile(processedProfile as Profile);
     if (chrome?.storage?.sync) {
       chrome.storage.sync.set({ rpgProfile: processedProfile });
     } else {
@@ -211,7 +258,7 @@ function App() {
     }
   };
 
-  const handleUpdateInventory = (newInventory) => {
+  const handleUpdateInventory = (newInventory: InventoryItem[]) => {
     setInventory(newInventory);
     if (chrome?.storage?.sync) {
       chrome.storage.sync.set({ inventory: newInventory });
@@ -220,7 +267,7 @@ function App() {
     }
   };
 
-  const saveSetting = (key, value) => {
+  const saveSetting = (key: string, value: any) => {
     if (chrome?.storage?.sync) {
       chrome.storage.sync.set({ [key]: value });
     } else {
@@ -234,17 +281,17 @@ function App() {
     saveSetting('soundEnabled', newState);
   };
 
-  const handleSetTheme = (newTheme) => {
+  const handleSetTheme = (newTheme: string) => {
     setTheme(newTheme);
     saveSetting('userTheme', newTheme);
   };
 
-  const handleSetAvatar = (newAvatar) => {
+  const handleSetAvatar = (newAvatar: string) => {
     setAvatar(newAvatar);
     saveSetting('userAvatar', newAvatar);
   };
 
-  const handleSetConfetti = (newStyle) => {
+  const handleSetConfetti = (newStyle: string) => {
     setConfettiStyle(newStyle);
     saveSetting('userConfetti', newStyle);
   };
@@ -278,14 +325,14 @@ function App() {
     }
   };
 
-  const handleSelectClass = (className) => {
+  const handleSelectClass = (className: string) => {
     const newProfile = { ...profile, userClass: className };
     handleUpdateProfile(newProfile);
     setShowClassSelector(false);
   };
 
   // --- DAILY LOGIN LOGIC ---
-  const checkDailyLogin = (currentProfile) => {
+  const checkDailyLogin = (currentProfile: Profile): Profile => {
     const today = new Date().toDateString();
     const lastLogin = currentProfile.lastLoginDate;
 
@@ -356,7 +403,7 @@ function App() {
         </div>
 
         {/* Streak Counter */}
-        {profile.streak > 0 && (
+        {profile.streak && profile.streak > 0 && (
           <div className="mb-6 flex flex-col items-center group cursor-help" title={`Daily Streak: ${profile.streak} Days`}>
             <span className="text-xl animate-fire">🔥</span>
             <span className="text-[10px] font-bold text-orange-500 font-mono">{profile.streak}</span>
