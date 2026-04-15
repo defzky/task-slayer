@@ -1,21 +1,42 @@
 # Changelog
 
-## [1.11.0] - 2026-04-15
+## [1.12.0] - 2026-04-15
 ### Added
-- **Code Splitting**: Lazy loading for heavy components (SkillTree, RaidBoss)
-  - Separate chunks: SkillTree (~4.5 KB), RaidBoss (~7.6 KB)
-  - Loading component with spinner for async loading states
-- **Performance Optimizations**: React.memo for pure components
-  - QuestStats, QuestTabs, QuestItem, BossQuest wrapped with memo
-  - Prevents unnecessary re-renders during parent updates
+- **State Management**: Global GameContext for centralized state
+  - Context API with useGame hook for all components
+  - Unified state: profile, inventory, quests, settings, streak
+  - Auto-save to Chrome Storage/localStorage
+  - Eliminates prop drilling across component tree
+- **Accessibility (A11y)**: Comprehensive ARIA support
+  - ARIA labels on all interactive elements
+  - Role attributes (navigation, main, region, button, menuitem)
+  - aria-pressed for toggle buttons
+  - aria-label for icons and images
+  - aria-hidden for decorative elements
+  - Progress bar with aria-valuenow/valuemin/valuemax
+  - Screen reader friendly quest form with proper labels
+- **Keyboard Navigation**: Custom hooks for accessible interactions
+  - useKeyboardNavigation: Handle Enter, Escape, Arrow keys
+  - useAccessibleButton: Keyboard-friendly button behavior
+  - Tab navigation support throughout the app
+- **App Structure**: Semantic HTML and landmarks
+  - role="application" on root
+  - role="navigation" for sidebar
+  - role="main" for content area
+  - role="menubar" and role="menuitem" for nav buttons
 
 ### Changed
-- **Bundle Size Optimization**: Main bundle reduced through code splitting
-- **Loading States**: Added visual feedback when loading lazy components
+- **App.tsx**: Refactored to use GameContext (549 → 380 lines)
+- **QuestStats**: Added ARIA labels and progress bar attributes
+- **QuestForm**: Added proper labels and screen reader support
+- **NavButton**: Added role="menuitem" and aria-pressed
 
 ### Technical
-- Code splitting verified: separate chunks for lazy components
-- All 8 tests still passing
+- Main bundle: 642 KB gzipped (slight reduction)
+- Code splitting maintained: SkillTree (4.5 KB), RaidBoss (7.6 KB)
+- All tests passing
+
+## [1.11.0] - 2026-04-15
 
 ## [1.10.0] - 2026-04-15
 ### Added
