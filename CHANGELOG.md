@@ -1,40 +1,27 @@
 # Changelog
 
-## [1.12.0] - 2026-04-15
+## [1.13.0] - 2026-04-15
 ### Added
-- **State Management**: Global GameContext for centralized state
-  - Context API with useGame hook for all components
-  - Unified state: profile, inventory, quests, settings, streak
-  - Auto-save to Chrome Storage/localStorage
-  - Eliminates prop drilling across component tree
-- **Accessibility (A11y)**: Comprehensive ARIA support
-  - ARIA labels on all interactive elements
-  - Role attributes (navigation, main, region, button, menuitem)
-  - aria-pressed for toggle buttons
-  - aria-label for icons and images
-  - aria-hidden for decorative elements
-  - Progress bar with aria-valuenow/valuemin/valuemax
-  - Screen reader friendly quest form with proper labels
-- **Keyboard Navigation**: Custom hooks for accessible interactions
-  - useKeyboardNavigation: Handle Enter, Escape, Arrow keys
-  - useAccessibleButton: Keyboard-friendly button behavior
-  - Tab navigation support throughout the app
-- **App Structure**: Semantic HTML and landmarks
-  - role="application" on root
-  - role="navigation" for sidebar
-  - role="main" for content area
-  - role="menubar" and role="menuitem" for nav buttons
+- **Test Coverage**: Comprehensive test suite with 61 tests across 10 files
+  - GameContext: Provider and hook tests
+  - Quests component tests (Quests, QuestForm, QuestItem, QuestList, QuestTabs, BossQuest)
+  - ErrorBoundary tests with error scenarios
+  - Loading component tests
+  - Custom hooks tests (useKeyboardNavigation, useAccessibleButton)
+  - 100% test file pass rate
 
-### Changed
-- **App.tsx**: Refactored to use GameContext (549 → 380 lines)
-- **QuestStats**: Added ARIA labels and progress bar attributes
-- **QuestForm**: Added proper labels and screen reader support
-- **NavButton**: Added role="menuitem" and aria-pressed
+### Test Coverage Details
+- **QuestForm**: 8 tests - form rendering, submission, edit mode, boss toggle
+- **QuestItem**: 5 tests - rendering, complete/edit/delete actions, deadlines
+- **QuestList**: 9 tests - tab rendering, empty states, action callbacks
+- **QuestTabs**: 5 tests - tab rendering, counts, switching, active states
+- **BossQuest**: 7 tests - boss rendering, HP bar, minions, subtask actions
+- **hooks**: 13 tests - keyboard navigation, accessible button behavior
+- **ErrorBoundary**: 4 tests - error catching, fallback UI, callbacks
+- **Loading**: 4 tests - default/custom messages, spinner, styling
+- **GameContext**: 2 tests - default values, provider requirement
 
-### Technical
-- Main bundle: 642 KB gzipped (slight reduction)
-- Code splitting maintained: SkillTree (4.5 KB), RaidBoss (7.6 KB)
-- All tests passing
+## [1.12.0] - 2026-04-15
 
 ## [1.11.0] - 2026-04-15
 
