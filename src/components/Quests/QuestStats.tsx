@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import type { Profile } from '../../types';
 
 interface QuestStatsProps {
@@ -8,7 +8,7 @@ interface QuestStatsProps {
   completedCount: number;
 }
 
-const QuestStats: React.FC<QuestStatsProps> = ({
+const QuestStats = memo<React.FC<QuestStatsProps>>(({
   profile,
   streak,
   avatar,
@@ -48,6 +48,6 @@ const QuestStats: React.FC<QuestStatsProps> = ({
       </div>
     </div>
   );
-};
+});
 
 export default QuestStats;

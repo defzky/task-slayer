@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import type { Quest } from '../../types';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -11,7 +11,7 @@ interface QuestItemProps {
   isSortable?: boolean;
 }
 
-const QuestItem: React.FC<QuestItemProps> = ({
+const QuestItem = memo<React.FC<QuestItemProps>>(({
   quest,
   onComplete,
   onDelete,
@@ -98,6 +98,6 @@ const QuestItem: React.FC<QuestItemProps> = ({
       </div>
     </div>
   );
-};
+});
 
 export default QuestItem;

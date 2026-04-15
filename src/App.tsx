@@ -1,15 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy, useMemo, useCallback } from 'react';
 import { Toaster, toast } from 'sonner';
 import Notes from './components/Notes';
 import Freezer from './components/Freezer';
 import Quests from './components/Quests';
 import Shop from './components/Shop';
-import SkillTree from './components/SkillTree';
 import Achievements, { ACHIEVEMENTS } from './components/Achievements';
-import RaidBoss from './components/RaidBoss';
 import ClassSelector from './components/ClassSelector';
 import Settings from './components/Settings';
 import { playSound } from './utils/soundfx';
+import Loading from './components/Loading';
+
+// Lazy-loaded components for code splitting
+const SkillTree = lazy(() => import('./components/SkillTree'));
+const RaidBoss = lazy(() => import('./components/RaidBoss'));
 
 interface Stats {
   questsCompleted: number;
@@ -533,12 +536,16 @@ function App() {
           currentAvatar={avatar}
           currentConfetti={confettiStyle}
         />}
-        {activeTab === 'skills' && <SkillTree
-          profile={profile}
-          updateProfile={handleUpdateProfile}
-          soundEnabled={soundEnabled}
-        />}
-        {activeTab === 'raids' && <RaidBoss profile={profile} updateProfile={handleUpdateProfile} activeRaid={activeRaid} setActiveRaid={handleUpdateRaid} />}
+        {activeTab === 'skills' && (
+          <Suspense fallback={<Loading message="Loading Skill Tree..." />}>
+            <SkillTree profile={profile} updateProfile={handleUpdateProfile} soundEnabled={soundEnabled} />
+          </Suspense>
+        )}
+        {activeTab === 'raids' && (
+          <Suspense fallback={<Loading message="Loading Raid Boss..." />}>
+            <RaidBoss profile={profile} updateProfile={handleUpdateProfile} activeRaid={activeRaid} setActiveRaid={handleUpdateRaid} />
+          </Suspense>
+        )}
         {activeTab === 'achievements' && <Achievements profile={profile} />}
         {activeTab === 'settings' && <Settings updateProfile={handleUpdateProfile} />}
       </main>

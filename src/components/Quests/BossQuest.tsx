@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import type { Quest, Subtask } from '../../types';
 
 interface BossQuestProps {
@@ -9,7 +9,7 @@ interface BossQuestProps {
   onDelete: (id: number) => void;
 }
 
-const BossQuest: React.FC<BossQuestProps> = ({
+const BossQuest = memo<React.FC<BossQuestProps>>(({
   quest,
   onAddSubtask,
   onCompleteSubtask,
@@ -121,6 +121,6 @@ const BossQuest: React.FC<BossQuestProps> = ({
       </div>
     </div>
   );
-};
+});
 
 export default BossQuest;

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 
 type QuestTab = 'active' | 'completed' | 'failed';
 
@@ -9,7 +9,7 @@ interface QuestTabsProps {
   failedCount: number;
 }
 
-const QuestTabs: React.FC<QuestTabsProps> = ({
+const QuestTabs = memo<React.FC<QuestTabsProps>>(({
   activeTab,
   onTabChange,
   completedCount,
@@ -48,6 +48,6 @@ const QuestTabs: React.FC<QuestTabsProps> = ({
       </button>
     </div>
   );
-};
+});
 
 export default QuestTabs;

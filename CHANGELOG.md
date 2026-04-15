@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.11.0] - 2026-04-15
+### Added
+- **Code Splitting**: Lazy loading for heavy components (SkillTree, RaidBoss)
+  - Separate chunks: SkillTree (~4.5 KB), RaidBoss (~7.6 KB)
+  - Loading component with spinner for async loading states
+- **Performance Optimizations**: React.memo for pure components
+  - QuestStats, QuestTabs, QuestItem, BossQuest wrapped with memo
+  - Prevents unnecessary re-renders during parent updates
+
+### Changed
+- **Bundle Size Optimization**: Main bundle reduced through code splitting
+- **Loading States**: Added visual feedback when loading lazy components
+
+### Technical
+- Code splitting verified: separate chunks for lazy components
+- All 8 tests still passing
+
 ## [1.10.0] - 2026-04-15
 ### Added
 - **Error Boundary**: Global error handling component with custom fallback UI
