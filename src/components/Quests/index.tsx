@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import confetti from 'canvas-confetti';
 import type { Profile, Quest, Subtask, InventoryItem } from '../../types';
 import { playSound } from '../../utils/soundfx';
@@ -7,6 +7,7 @@ import QuestStats from './QuestStats';
 import QuestForm from './QuestForm';
 import QuestTabs from './QuestTabs';
 import QuestList from './QuestList';
+import ObsidianSync from '../ObsidianSync/ObsidianSync';
 
 type QuestTab = 'active' | 'completed' | 'failed';
 
@@ -438,6 +439,15 @@ const Quests: React.FC<QuestsProps> = ({
     (q) => q.deadline && new Date(q.deadline) < new Date() && !q.completed
   ).length;
 
+  const handleObsidianSync = useCallback((tasks: any[]) => {
+    // Import tasks from Obsidian as quests
+    tasks.forEach((task: any) => {
+      if (!task.questId && !task.completed) {
+        addQuest(task.title, null, false);
+      }
+    });
+  }, [addQuest]);
+
   return (
     <div className="h-full flex flex-col">
       <QuestStats
@@ -446,6 +456,8 @@ const Quests: React.FC<QuestsProps> = ({
         avatar={avatar}
         completedCount={completedCount}
       />
+
+      <ObsidianSync onSyncComplete={handleObsidianSync} />
 
       <QuestForm
         onAddQuest={addQuest}
