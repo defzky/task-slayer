@@ -54,5 +54,56 @@ A productivity extension for developers disguised as a cozy RPG. Gamify your cod
 4. **Freeze Tabs** when switching contexts.
 5. **Kill Bosses** to get massive XP and level up!
 
+## 📋 Development Workflow
+
+### Commit & Push Guidelines
+
+Before committing, always:
+
+1. **Update CHANGELOG.md**
+   - Add entry under new version section
+   - Follow format: `## [X.Y.Z] - YYYY-MM-DD`
+   - Use categories: `Added`, `Changed`, `Fixed`, `Removed`, `Technical`
+   - Be specific about what changed and why
+
+2. **Update README.md** (if applicable)
+   - Update Features section for new functionality
+   - Update Tech Stack if dependencies changed
+   - Update Installation/Usage if steps changed
+   - Keep version badge current (if added)
+
+3. **Version Numbering** (SemVer)
+   - `MAJOR.MINOR.PATCH` (e.g., 1.9.0)
+   - **MAJOR**: Breaking changes
+   - **MINOR**: New features (backward compatible)
+   - **PATCH**: Bug fixes only
+
+4. **Commit Messages**
+   - Use conventional commits format
+   - Format: `type: subject` + optional body
+   - Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`
+   - Example: `feat: add TypeScript migration`
+
+5. **Push**
+   - Ensure build passes: `npm run build`
+   - Push to main branch: `git push origin master`
+   - Tag releases: `git tag -a v1.9.0 -m "Release v1.9.0"`
+
+### Quick Checklist
+```bash
+# Before commit
+npm run build          # Verify build passes
+git status             # Review changes
+
+# Update docs
+# - Edit CHANGELOG.md
+# - Edit README.md (if needed)
+
+# Commit & push
+git add -A
+git commit -m "type: description"
+git push origin master
+```
+
 ---
 *Built with ❤️ by Zky*

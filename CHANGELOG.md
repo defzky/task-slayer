@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.9.0] - 2026-04-15
+### Changed
+- **TypeScript Migration**: Full codebase migration from JavaScript (.jsx/.js) to TypeScript (.tsx/.ts)
+- **Type Safety**: Added comprehensive type definitions for Profile, Inventory, Raid, Stats, and all components
+- **Build System**: Updated Vite configuration to use TypeScript (vite.config.ts)
+- **Configuration**: Added tsconfig.json and tsconfig.node.json with strict mode enabled
+
+### Added
+- **Type Definitions**: New `src/types/index.ts` with shared interfaces
+- **Type Annotations**: All components now have proper prop types and state types
+- **Chrome API Types**: Added @types/chrome for extension API type safety
+
+### Technical
+- Converted 12 files: App, main, 10 components, 1 utility
+- Build verified: production build succeeds without errors
+- No breaking changes to functionality
+
 ## [1.8.1] - 2026-01-30
 ### Added
 - **Quick Date Selector**: New UI for setting quest deadlines with presets (Today Eve, Tomorrow Night, Next Week).
