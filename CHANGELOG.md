@@ -1,7 +1,12 @@
 # Changelog
 
-## [0.2.0] - 2026-04-15
+## [0.3.0] - 2026-04-15
 ### Added
+- **Expanded Test Coverage**: Added tests for core components
+  - Notes component tests (4 tests)
+  - Freezer component tests (3 tests)
+  - Shop component tests (4 tests)
+  - Total: 72 passing tests across 13 test files
 - **Onboarding Tutorial**: Interactive 10-step tutorial for new users
   - Welcome screen with app overview
   - Feature walkthrough (Quests, Boss Battles, Notes, Freezer, Shop, Skills)
