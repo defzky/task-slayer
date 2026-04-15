@@ -1,5 +1,29 @@
 # Changelog
 
+## [1.10.0] - 2026-04-15
+### Added
+- **Error Boundary**: Global error handling component with custom fallback UI
+- **Test Infrastructure**: Vitest + React Testing Library setup
+  - Unit tests for ErrorBoundary and Quests components
+  - Test scripts: `npm test`, `npm run test:run`, `npm run test:coverage`
+- **Component Documentation**: Updated README with project structure and testing guide
+
+### Changed
+- **Quests Component Refactoring**: Split 782-line monolith into 7 focused components
+  - `Quests/index.tsx` - Main container (orchestrates sub-components)
+  - `QuestStats.tsx` - Profile/stats display
+  - `QuestForm.tsx` - Add/edit quest form
+  - `QuestTabs.tsx` - Tab navigation
+  - `QuestList.tsx` - Quest list rendering
+  - `QuestItem.tsx` - Normal quest item with drag-drop
+  - `BossQuest.tsx` - Boss battle UI with HP bar and subtasks
+- **File Organization**: Moved QuickDateSelector into Quests folder
+
+### Technical
+- Reduced Quests.tsx from 782 lines → 140 lines (82% reduction)
+- Improved code maintainability and testability
+- All 8 tests passing
+
 ## [1.9.0] - 2026-04-15
 ### Changed
 - **TypeScript Migration**: Full codebase migration from JavaScript (.jsx/.js) to TypeScript (.tsx/.ts)

@@ -32,10 +32,12 @@ A productivity extension for developers disguised as a cozy RPG. Gamify your cod
 - **Focus**: Free up RAM and mental space.
 
 ## 🛠️ Tech Stack
-- **React 19**
+- **React 19** (with TypeScript)
 - **Vite**
 - **TailwindCSS**
 - **Chrome Extension API** (Storage, Tabs)
+- **Vitest** + **Testing Library** (Testing)
+- **dnd-kit** (Drag & Drop)
 
 ## 🚀 Installation
 
@@ -46,6 +48,42 @@ A productivity extension for developers disguised as a cozy RPG. Gamify your cod
 5. Enable **Developer Mode**.
 6. Click **Load Unpacked**.
 7. Select the `dist` folder.
+
+## 🧪 Testing
+
+```bash
+# Run tests in watch mode
+npm test
+
+# Run tests once
+npm run test:run
+
+# Run tests with coverage
+npm run test:coverage
+```
+
+Test files are located in `src/__tests__/` and follow the pattern `*.test.tsx`.
+
+## 📁 Project Structure
+
+```
+src/
+├── components/
+│   ├── Quests/          # Quest board (split into smaller components)
+│   │   ├── index.tsx    # Main container
+│   │   ├── QuestStats.tsx
+│   │   ├── QuestForm.tsx
+│   │   ├── QuestTabs.tsx
+│   │   ├── QuestList.tsx
+│   │   ├── QuestItem.tsx
+│   │   ├── BossQuest.tsx
+│   │   └── QuickDateSelector.tsx
+│   ├── ErrorBoundary/   # Error handling
+│   └── *.tsx            # Other components
+├── types/               # TypeScript type definitions
+├── utils/               # Utility functions
+└── __tests__/           # Test files
+```
 
 ## 🎮 How to Play
 1. **Login Daily** to build your streak.
