@@ -7,9 +7,7 @@ import QuestStats from './QuestStats';
 import QuestForm from './QuestForm';
 import QuestTabs from './QuestTabs';
 import QuestList from './QuestList';
-
-// DatabaseToki integration
-import { saveToTable, getFromTable } from '../../utils/databaseToki';
+import { loadQuests, saveQuests } from '../../utils/databaseToki';
 
 type QuestTab = 'active' | 'completed' | 'failed';
 
@@ -37,96 +35,19 @@ const Quests: React.FC<QuestsProps> = ({
   const [editingQuest, setEditingQuest] = useState<Quest | null>(null);
   const [streak, setStreak] = useState(0);
 
-  // Load quests and streak on mount
+  // Load quests on mount
   useEffect(() => {
-    const loadData = async (result: Record<string, unknown>) => {
-      let loadedQuests: Quest[] = [];
-      
-      // First, try to load from DatabaseToki if no local data
-      if (!result.quests || (Array.isArray(result.quests) && result.quests.length === 0)) {
-        const dbQuests = await getFromTable('quests');
-        if (dbQuests && dbQuests.length > 0) {
-          loadedQuests = dbQuests;
-          console.log('_SYNC_ Loaded quests from DatabaseToki:', dbQuests.length);
-        }
-      } else {
-        loadedQuests = result.quests as Quest[];
-      }
-      
-      setQuests(loadedQuests);
-
-      const today = new Date().toDateString();
-      const lastLogin = result.lastLoginDate as string | undefined;
-      let currentStreak = (result.dailyStreak as number) || 0;
-
-      if (lastLogin !== today) {
-        const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
-
-        if (lastLogin === yesterday.toDateString()) {
-          currentStreak += 1;
-        } else {
-          currentStreak = 1;
-        }
-
-        const updates = { lastLoginDate: today, dailyStreak: currentStreak };
-        if (chrome?.storage?.sync) {
-          chrome.storage.sync.set(updates);
-        } else if (chrome?.storage?.local) {
-          chrome.storage.local.set(updates);
-        } else {
-          localStorage.setItem('lastLoginDate', today);
-          localStorage.setItem('dailyStreak', String(currentStreak));
-        }
-      }
-      setStreak(currentStreak);
-    };
-
-    const loadInitialData = async () => {
-      if (chrome?.storage?.sync) {
-        chrome.storage.sync.get(
-          ['quests', 'dailyStreak', 'lastLoginDate'],
-          async (syncRes) => {
-            if (Object.keys(syncRes).length > 0) {
-              await loadData(syncRes as Record<string, unknown>);
-            } else {
-              chrome.storage.local.get(
-                ['quests', 'dailyStreak', 'lastLoginDate'],
-                async (localRes) => {
-                  if (Object.keys(localRes).length > 0) {
-                    await loadData(localRes as Record<string, unknown>);
-                    chrome.storage.sync.set(localRes);
-                  } else {
-                    await loadData({});
-                  }
-                }
-              );
-            }
-          }
-        );
-      } else if (chrome?.storage?.local) {
-        chrome.storage.local.get(
-          ['rpgProfile', 'quests', 'dailyStreak', 'lastLoginDate'],
-          async (localRes) => {
-            await loadData(localRes as Record<string, unknown>);
-          }
-        );
-      } else {
-        const savedQuests = localStorage.getItem('quests');
-        const dailyStreak = localStorage.getItem('dailyStreak')
-          ? parseInt(localStorage.getItem('dailyStreak')!)
-          : 0;
-        const lastLoginDate = localStorage.getItem('lastLoginDate');
-
-        await loadData({
-          quests: savedQuests ? JSON.parse(savedQuests) : null,
-          dailyStreak,
-          lastLoginDate
-        });
+  // Load quests on mount
+  useEffect(() => {
+    const loadQuestsFromDB = async () => {
+      const storedQuests = await loadQuests();
+      if (storedQuests && storedQuests.length > 0) {
+        setQuests(storedQuests);
+        console.log('_SYNC_ Loaded quests from DatabaseToki:', storedQuests.length);
       }
     };
 
-    loadInitialData();
+    loadQuestsFromDB();
   }, []);
 
   const saveState = async (
@@ -139,6 +60,7 @@ const Quests: React.FC<QuestsProps> = ({
     const data: Record<string, unknown> = {};
     if (newQuests) data.quests = newQuests;
 
+    // Save to Chrome Storage (primary)
     if (chrome?.storage?.sync) {
       chrome.storage.sync.set(data);
     } else if (chrome?.storage?.local) {
@@ -147,14 +69,11 @@ const Quests: React.FC<QuestsProps> = ({
       if (newQuests) localStorage.setItem('quests', JSON.stringify(newQuests));
     }
 
-    // Also save to DatabaseToki
-    if (newQuests) {
-      try {
-        await saveToTable('quests', newQuests);
-        console.log('_SYNC_ Quests saved to DatabaseToki');
-      } catch (error) {
-        console.error('_SYNC_ Failed to save quests to DatabaseToki:', error);
-      }
+    // Sync to DatabaseToki (backup)
+    if (newQuests && data.quests) {
+      console.log('_SYNC_ Syncing quests to DatabaseToki...');
+      await saveQuests(newQuests);
+      console.log('_SYNC_ Quests synced to DatabaseToki!');
     }
   };
 
@@ -467,6 +386,82 @@ const Quests: React.FC<QuestsProps> = ({
   const failedCount = quests.filter(
     (q) => q.deadline && new Date(q.deadline) < new Date() && !q.completed
   ).length;
+
+  const handleObsidianSync = useCallback(async (tasks: any[]) => {
+    // Import tasks from Obsidian as quests
+    let importedCount = 0;
+    let skippedCount = 0;
+    
+    for (const task of tasks) {
+      // Skip if already has questId (already synced)
+      if (task.questId) {
+        skippedCount++;
+        continue;
+      }
+      
+      // Skip if completed
+      if (task.completed) {
+        skippedCount++;
+        continue;
+      }
+      
+      // Skip if quest with same title already exists (avoid duplicates)
+      const existingQuest = quests.find(q => q.title === task.title);
+      if (existingQuest) {
+        // Link existing quest to this task
+        try {
+          await fetch(`${MOCKBASE_URL}/obsidian/tasks/${task.id}/link`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ questId: existingQuest.id })
+          });
+        } catch (err) {
+          console.error('Failed to link task:', err);
+        }
+        skippedCount++;
+        continue;
+      }
+      
+      // Add new quest
+      const newQuestId = Date.now();
+      const newQuest: Quest = {
+        id: newQuestId,
+        title: task.title,
+        type: 'normal',
+        xpReward: Math.floor(Math.random() * 30) + 20,
+        hp: 0,
+        maxHp: 0,
+        deadline: null,
+        subtasks: [],
+        completed: false
+      };
+      
+      const updatedQuests = [newQuest, ...quests];
+      setQuests(updatedQuests);
+      saveState(null, updatedQuests);
+      
+      // Link the task to the new quest
+      try {
+        await fetch(`${MOCKBASE_URL}/obsidian/tasks/${task.id}/link`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ questId: newQuestId })
+        });
+      } catch (err) {
+        console.error('Failed to link task:', err);
+      }
+      
+      importedCount++;
+    }
+    
+    // Show feedback
+    if (importedCount > 0) {
+      console.log(`✓ Imported ${importedCount} quest${importedCount !== 1 ? 's' : ''} from Obsidian`);
+    }
+    if (skippedCount > 0) {
+      console.log(`⊘ Skipped ${skippedCount} existing/duplicate task${skippedCount !== 1 ? 's' : ''}`);
+    }
+  }, []);
 
   return (
     <div className="h-full flex flex-col">

@@ -1,4 +1,4 @@
-import React, { Suspense, useCallback, useState, useEffect } from 'react';
+import React, { Suspense, lazy, useCallback, useState, useEffect } from 'react';
 import { Toaster, toast } from 'sonner';
 import { useGame } from './contexts';
 import Notes from './components/Notes';

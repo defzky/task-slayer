@@ -18,6 +18,9 @@ import {
     verticalListSortingStrategy,
     useSortable,
 } from '@dnd-kit/sortable';
+
+// DatabaseToki integration
+import { saveToTable, getFromTable } from '../utils/databaseToki';
 import { CSS } from '@dnd-kit/utilities';
 
 interface SortableNoteItemProps {
@@ -153,9 +156,21 @@ const Notes: React.FC<NotesProps> = ({ profile, updateProfile }) => {
             setNotes(loadedNotes);
             if (loadedNotes.length > 0) setActiveNoteId(loadedNotes[0].id);
         }
-    }, []);
 
-    const saveNotes = (updatedNotes: Note[]) => {
+        // If no notes loaded, try DatabaseToki
+        setTimeout(async () => {
+            if (notes.length === 0) {
+                const dbNotes = await getFromTable('notes');
+                if (dbNotes && dbNotes.length > 0) {
+                    setNotes(dbNotes);
+                    if (dbNotes.length > 0) setActiveNoteId(dbNotes[0].id);
+                    console.log('_SYNC_ Loaded notes from DatabaseToki:', dbNotes.length);
+                }
+            }
+        }, 100);
+    }, [notes]);
+
+    const saveNotes = async (updatedNotes: Note[]) => {
         setNotes(updatedNotes);
         if (chrome?.storage?.sync) {
             chrome.storage.sync.set({ notesList: updatedNotes });
@@ -163,6 +178,14 @@ const Notes: React.FC<NotesProps> = ({ profile, updateProfile }) => {
             chrome.storage.local.set({ notesList: updatedNotes });
         } else {
             localStorage.setItem('notesList', JSON.stringify(updatedNotes));
+        }
+
+        // Also save to DatabaseToki
+        try {
+            await saveToTable('notes', updatedNotes);
+            console.log('_SYNC_ Notes saved to DatabaseToki');
+        } catch (error) {
+            console.error('_SYNC_ Failed to save notes to DatabaseToki:', error);
         }
     };
 
