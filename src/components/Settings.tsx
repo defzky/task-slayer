@@ -1,6 +1,11 @@
 import React from 'react';
+import type { Profile } from '../types';
 
-const Settings = ({ updateProfile }) => {
+interface SettingsProps {
+    updateProfile: (profile: Profile) => void;
+}
+
+const Settings: React.FC<SettingsProps> = () => {
 
     const handleExport = () => {
         if (chrome?.storage?.sync) {
@@ -22,15 +27,18 @@ const Settings = ({ updateProfile }) => {
                 a.click();
             });
         } else {
-            // LocalStorage fallback for dev
-            const data = {};
+            const data: Record<string, string | object> = {};
             for (let i = 0; i < localStorage.length; i++) {
                 const key = localStorage.key(i);
-                data[key] = localStorage.getItem(key);
-                try {
-                    data[key] = JSON.parse(data[key]);
-                } catch (e) {
-                    // keep string
+                if (key) {
+                    const item = localStorage.getItem(key);
+                    if (item) {
+                        try {
+                            data[key] = JSON.parse(item);
+                        } catch {
+                            data[key] = item;
+                        }
+                    }
                 }
             }
             const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -42,25 +50,25 @@ const Settings = ({ updateProfile }) => {
         }
     };
 
-    const handleImport = (e) => {
-        const file = e.target.files[0];
+    const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
         if (!file) return;
 
         const reader = new FileReader();
         reader.onload = (event) => {
             try {
-                const data = JSON.parse(event.target.result);
+                const data = JSON.parse(event.target?.result as string);
                 if (confirm('⚠️ WARNING: This will overwrite your CURRENT progress. Are you sure?')) {
                     if (chrome?.storage?.sync) {
                         chrome.storage.sync.clear(() => {
-                            chrome.storage.sync.set(data, () => {
+                            chrome.storage.sync.set(data as chrome.storage.StorageSync, () => {
                                 alert('Import successful! Reloading...');
                                 window.location.reload();
                             });
                         });
                     } else if (chrome?.storage?.local) {
                         chrome.storage.local.clear(() => {
-                            chrome.storage.local.set(data, () => {
+                            chrome.storage.local.set(data as chrome.storage.StorageLocal, () => {
                                 alert('Import successful! Reloading...');
                                 window.location.reload();
                             });
@@ -69,7 +77,9 @@ const Settings = ({ updateProfile }) => {
                         localStorage.clear();
                         Object.keys(data).forEach(key => {
                             const val = typeof data[key] === 'object' ? JSON.stringify(data[key]) : data[key];
-                            localStorage.setItem(key, val);
+                            if (typeof val === 'string') {
+                                localStorage.setItem(key, val);
+                            }
                         });
                         alert('Import successful! Reloading...');
                         window.location.reload();
@@ -104,15 +114,12 @@ const Settings = ({ updateProfile }) => {
     };
 
     return (
-
         <div className="h-full flex flex-col p-4">
             <h2 className="text-2xl font-bold text-[#e0e0e0] border-b-2 border-[#555] pb-2 mb-6 flex items-center gap-3">
                 <span className="text-3xl">⚙️</span> System Menu
             </h2>
 
-            {/* Data Management (World State) */}
             <div className="bg-[#1a181a] p-6 rounded-lg border-2 border-[#444] shadow-[0_0_20px_rgba(0,0,0,0.5)] relative overflow-hidden mb-6">
-                {/* Decorative Texture */}
                 <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-10 pointer-events-none"></div>
 
                 <h3 className="text-[#d4af37] font-bold mb-6 flex items-center gap-2 text-lg uppercase tracking-wider border-b border-[#333] pb-2 relative z-10">
@@ -120,7 +127,6 @@ const Settings = ({ updateProfile }) => {
                 </h3>
 
                 <div className="space-y-6 relative z-10">
-                    {/* Export */}
                     <div className="flex justify-between items-center group">
                         <div>
                             <div className="text-base font-bold text-gray-200 group-hover:text-[#d4af37] transition-colors">Chronicle Record (Export)</div>
@@ -134,7 +140,6 @@ const Settings = ({ updateProfile }) => {
                         </button>
                     </div>
 
-                    {/* Import */}
                     <div className="flex justify-between items-center group">
                         <div>
                             <div className="text-base font-bold text-gray-200 group-hover:text-[#d4af37] transition-colors">Rewrite History (Import)</div>
@@ -148,7 +153,6 @@ const Settings = ({ updateProfile }) => {
                 </div>
             </div>
 
-            {/* Danger Zone (Cataclysm) */}
             <div className="bg-[#1a0505] p-6 rounded-lg border-2 border-red-900/50 shadow-[0_0_20px_rgba(255,0,0,0.1)] relative overflow-hidden mt-auto">
                 <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/diagmonds-light.png')] opacity-5 pointer-events-none"></div>
                 <h3 className="text-red-500 font-bold mb-4 flex items-center gap-2 uppercase tracking-wider relative z-10">

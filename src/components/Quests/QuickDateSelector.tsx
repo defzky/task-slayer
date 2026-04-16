@@ -1,13 +1,18 @@
 import React, { useState, useRef, useEffect } from 'react';
 
-const QuickDateSelector = ({ value, onChange, className }) => {
-    const [isOpen, setIsOpen] = useState(false);
-    const containerRef = useRef(null);
+interface QuickDateSelectorProps {
+    value: string | null;
+    onChange: (value: string | null) => void;
+    className?: string;
+}
 
-    // Close on click outside
+const QuickDateSelector: React.FC<QuickDateSelectorProps> = ({ value, onChange, className }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const containerRef = useRef<HTMLDivElement>(null);
+
     useEffect(() => {
-        const handleClickOutside = (event) => {
-            if (containerRef.current && !containerRef.current.contains(event.target)) {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
                 setIsOpen(false);
             }
         };
@@ -15,7 +20,7 @@ const QuickDateSelector = ({ value, onChange, className }) => {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    const handleSelect = (date) => {
+    const handleSelect = (date: Date) => {
         onChange(date.toISOString());
         setIsOpen(false);
     };
@@ -25,15 +30,13 @@ const QuickDateSelector = ({ value, onChange, className }) => {
         setIsOpen(false);
     };
 
-    // Helper: Set time for a date
-    const setTime = (date, hours, minutes = 0) => {
+    const setTime = (date: Date, hours: number, minutes = 0): Date => {
         const d = new Date(date);
         d.setHours(hours, minutes, 0, 0);
         return d;
     };
 
-    // Quick Options
-    const quickOptions = [
+    const quickOptions: { label: string; get: () => Date }[] = [
         {
             label: '🌅 Today Eve',
             get: () => setTime(new Date(), 17)
@@ -52,8 +55,7 @@ const QuickDateSelector = ({ value, onChange, className }) => {
         }
     ];
 
-    // Format display
-    const getDisplayCheck = () => {
+    const getDisplayCheck = (): string | null => {
         if (!value) return null;
         const d = new Date(value);
         const now = new Date();
@@ -71,7 +73,6 @@ const QuickDateSelector = ({ value, onChange, className }) => {
 
     return (
         <div className={`relative ${className}`} ref={containerRef}>
-            {/* Trigger Button */}
             <button
                 type="button"
                 onClick={() => setIsOpen(!isOpen)}
@@ -93,15 +94,12 @@ const QuickDateSelector = ({ value, onChange, className }) => {
                 )}
             </button>
 
-            {/* Dropdown Menu */}
             {isOpen && (
                 <div className="absolute top-full right-0 mt-2 w-64 bg-[#1a0f0f] border border-[#5c4033] rounded-lg shadow-2xl p-3 z-30 animate-in fade-in slide-in-from-top-2">
-                    {/* Header */}
                     <div className="text-xs font-bold text-[#8a6d1f] uppercase tracking-widest mb-2 border-b border-[#5c4033] pb-1">
                         Quick Select
                     </div>
 
-                    {/* Quick Grid */}
                     <div className="grid grid-cols-2 gap-2 mb-3">
                         {quickOptions.map((opt, idx) => (
                             <button
@@ -115,7 +113,6 @@ const QuickDateSelector = ({ value, onChange, className }) => {
                         ))}
                     </div>
 
-                    {/* Custom Input */}
                     <div className="text-xs font-bold text-[#8a6d1f] uppercase tracking-widest mb-1 border-b border-[#5c4033] pb-1">
                         Custom Date
                     </div>

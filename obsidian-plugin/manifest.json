@@ -1,0 +1,10 @@
+{
+  "id": "task-slayer",
+  "name": "Task Slayer",
+  "version": "0.1.0",
+  "minAppVersion": "0.15.0",
+  "description": "Sync Task Slayer quests with your Obsidian vault",
+  "author": "defzky",
+  "authorUrl": "https://github.com/defzky",
+  "isDesktopOnly": false
+}
